@@ -61,7 +61,7 @@ mkdir build
 cd build
 cmake -DSPL_INCLUDE_DIR=/usr/include/libspl \
 -DZFS_INCLUDE_DIR=/usr/include/libzfs \
--DZFS_LIBRARY_DIR=/lib \
+-DZFS_LIBRARY_DIR=/lib64 \
 -DBUILD_SHARED_LIBS=ON \
 -DCMAKE_BUILD_TYPE=Release ..
 make
