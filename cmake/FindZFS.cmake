@@ -46,11 +46,14 @@ find_path(ZFS_INCLUDE libzfs.h HINTS ${ZFS_INCLUDE_DIR})
 
 find_library(NVPAIR_LIBRARY nvpair HINTS ${ZFS_LIBRARY_DIR})
 find_library(ZPOOL_LIBRARY zpool HINTS ${ZFS_LIBRARY_DIR})
+find_library(ZFS_CORE_LIBRARY zfs_core HINTS ${ZFS_LIBRARY_DIR})
 find_library(ZFS_LIBRARY zfs HINTS ${ZFS_LIBRARY_DIR})
 
 find_package_handle_standard_args(ZFS DEFAULT_MSG ZFS_INCLUDE
-        NVPAIR_LIBRARY ZPOOL_LIBRARY ZFS_LIBRARY)
-mark_as_advanced(ZFS_INCLUDE NVPAIR_LIBRARY ZPOOL_LIBRARY ZFS_LIBRARY)
+        NVPAIR_LIBRARY ZPOOL_LIBRARY
+        ZFS_CORE_LIBRARY ZFS_LIBRARY)
+mark_as_advanced(ZFS_INCLUDE NVPAIR_LIBRARY ZPOOL_LIBRARY
+        ZFS_CORE_LIBRARY ZFS_LIBRARY)
 
 if (ZFS_FOUND)
     if (NOT TARGET nvpair)
@@ -66,6 +69,13 @@ if (ZFS_FOUND)
                 INTERFACE_INCLUDE_DIRECTORIES "${ZFS_INCLUDE}")
         set_property(TARGET zpool APPEND PROPERTY
                 IMPORTED_LOCATION "${ZPOOL_LIBRARY}")
+    endif ()
+    if (NOT TARGET zfs_core)
+        add_library(zfs_core UNKNOWN IMPORTED)
+        set_target_properties(zfs_core PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${ZFS_INCLUDE}")
+        set_property(TARGET zfs_core APPEND PROPERTY
+                IMPORTED_LOCATION "${ZFS_CORE_LIBRARY}")
     endif ()
     if (NOT TARGET zfs)
         add_library(zfs UNKNOWN IMPORTED)
