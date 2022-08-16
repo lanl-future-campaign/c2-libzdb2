@@ -30,10 +30,31 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(zdb-srcs zdb.c zdb_il.c)
+set(zdb-srcs
+  c2_libnvpair.c
+  c2_vdev_raidz.c
+  libzdb.c
+  list.c
+  )
 
-add_compile_definitions(_LARGEFILE64_SOURCE)
+set(ZFS_LIBS  "/usr/local/lib" CACHE PATH "Directory where ZFS libraries can be found")
+set(ZFS_DEBUG Off              CACHE BOOL "Whether or not ZFS was compiled with debug")
 
 add_executable(zdb ${zdb-srcs})
+
+target_compile_definitions(zdb PRIVATE LARGEFILE64_SOURCE)
+target_compile_definitions(zdb PRIVATE _GNU_SOURCE)
+if (ZFS_DEBUG)
+  target_compile_definitions(zdb PRIVATE ZFS_DEBUG)
+endif()
+
 target_include_directories(zdb PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(zdb spl zpool zfs_core nvpair)
+target_include_directories(zdb PRIVATE /home/jlee/zfs/include)
+target_include_directories(zdb PRIVATE /home/jlee/zfs/lib/libspl/include)
+target_include_directories(zdb PRIVATE /home/jlee/zfs/lib/libspl/include/os/linux)
+
+target_link_libraries(zdb
+  "${ZFS_LIBS}/libzpool.so"
+  "${ZFS_LIBS}/libnvpair.so"
+  pthread
+  )

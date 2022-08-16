@@ -28,27 +28,11 @@ for more information.
 
 # ZFS
 
-This codebase targets ZFS 2.1.5.
+This codebase targets the latest ZFS master branch.
 
 # Software requirements
 
-Compiling LibZDB currently requires zfs, g++, cmake, and make. On CentOS 8, one may use the following commands to
-prepare
-the programming environment for LibZDB.
-
-```bash
-sudo yum install libzfs5-devel
-```
-
-## ZFS headers
-
-Installing libzfs5-devel will not install the zfs_ioctl.h that is required by libZDB. To resolve this issue,
-one can manually install the header from the zfs source tree. Make sure to use zfs 2.1.5.
-
-```bash
-cd /usr/include/libzfs/sys/
-sudo wget https://raw.githubusercontent.com/openzfs/zfs/zfs-2.1.5/include/sys/zfs_ioctl.h
-```
+Compiling LibZDB currently requires the ZFS source, g++, CMake, and make.
 
 # Building LibZDB
 
@@ -59,10 +43,6 @@ git clone https://github.com/lanl-future-campaign/c2-libzdb2.git
 cd c2-libzdb2
 mkdir build
 cd build
-cmake -DSPL_INCLUDE_DIR=/usr/include/libspl \
--DZFS_INCLUDE_DIR=/usr/include/libzfs \
--DZFS_LIBRARY_DIR=/lib64 \
--DBUILD_SHARED_LIBS=ON \
--DCMAKE_BUILD_TYPE=Release ..
+cmake .. -DZFS_LIBS=<ZFS library prefix> -DZFS_DEBUG=<On|Off>
 make
 ```
