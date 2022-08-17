@@ -29,6 +29,26 @@
 # ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-cmake_minimum_required(VERSION 3.1.0)
-project (c2_libzdb C)
+cmake_minimum_required(VERSION 3.1)
+project(C2-LIBZDB2 C)
+
+set(CMAKE_MODULE_PATH
+        ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+            "Debug" "Release" "RelWithDebInfo" "MinSizeRel")
+endif ()
+
+# Build against a ZFS source tree rather than an installed version of ZFS.
+# For this to work, the ZFS source tree must have gone through the build process (i.e.,
+# ./autogen.sh, ./configure, and make must have been called) though it does not have
+# to be installed (make install)
+set(ZFS_SOURCE_HOME "" CACHE PATH "ZFS source directory")
+set(ZFS_DEBUG OFF CACHE BOOL "Whether ZFS was compiled with debug")
+
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads REQUIRED)
+
 add_subdirectory(src)
