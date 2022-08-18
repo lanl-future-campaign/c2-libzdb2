@@ -48,9 +48,12 @@ sudo dnf install epel-release
 sudo dnf install --enablerepo=epel --enablerepo=powertools python3-packaging dkms
 ```
 
+On CentOS 8, this will install gcc 8.5.0, make 4.2.1, cmake 3.20.2, and kernel-devel 4.18.0-408.
+
 # Build ZFS
 
-Next, download the latest ZFS source tree and build it.
+Next, download the latest ZFS source tree, build, and install it.
+In this demo, we will use `/opt/src` as our install target. Installing ZFS is optional.
 
 ```bash
 cd ${HOME}
@@ -76,7 +79,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 make
 ```
 
-The other is to build LibZDB against the ZFS we just installed to /opt/zfs.
+The other is to build LibZDB against the ZFS we just installed.
 
 ```bash
 git clone https://github.com/lanl-future-campaign/c2-libzdb2.git
