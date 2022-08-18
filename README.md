@@ -52,8 +52,8 @@ On CentOS 8, this will install gcc 8.5.0, make 4.2.1, cmake 3.20.2, and kernel-d
 
 # Build ZFS
 
-Next, download the latest ZFS source tree, build, and install it.
-In this demo, we will use `/opt/src` as our install target. Installing ZFS is optional.
+Next, download the latest ZFS source tree, build, and install it. In this demo, we will use `/opt/zfs` as our install
+target. Installing ZFS is not required to compile LibZDB2 (but is required to run tests).
 
 ```bash
 cd ${HOME}
