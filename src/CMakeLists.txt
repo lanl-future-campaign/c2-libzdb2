@@ -44,19 +44,34 @@ if (ZFS_DEBUG)
     target_compile_definitions(zdb PRIVATE ZFS_DEBUG)
 endif ()
 
+target_include_directories(zdb PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
 if (ZFS_SOURCE_HOME STREQUAL "")
-    find_package(SPL MODULE REQUIRED)
-    find_package(ZFS MODULE REQUIRED)
-    target_include_directories(zdb PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(zdb spl zpool nvpair Threads::Threads)
+    pkg_check_modules(ZFS REQUIRED libzfs)
+
+    target_include_directories(zdb PRIVATE ${ZFS_INCLUDE_DIRS})
+    target_link_libraries(zdb ${ZFS_LDFLAGS} zpool Threads::Threads)
 else ()
-    target_include_directories(zdb PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    pkg_check_modules(LIBBSD REQUIRED libbsd)
+
     target_include_directories(zdb PRIVATE ${ZFS_SOURCE_HOME}/include)
     target_include_directories(zdb PRIVATE ${ZFS_SOURCE_HOME}/lib/libspl/include)
     target_include_directories(zdb PRIVATE ${ZFS_SOURCE_HOME}/lib/libspl/include/os/linux)
+
+    execute_process(COMMAND find "${ZFS_SOURCE_HOME}" -name "libzpool.so"
+            OUTPUT_VARIABLE LIBZPOOL
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message(STATUS "libzpool.so found at ${LIBZPOOL}")
+
+    execute_process(COMMAND find "${ZFS_SOURCE_HOME}" -name "libnvpair.so"
+            OUTPUT_VARIABLE LIBNVPAIR
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message(STATUS "libnvpair.so found at ${LIBNVPAIR}")
+
     target_link_libraries(zdb
-            "${ZFS_SOURCE_HOME}/.libs/libzpool.so"
-            "${ZFS_SOURCE_HOME}/.libs/libnvpair.so"
+            ${LIBZPOOL}
+            ${LIBNVPAIR}
+            ${LIBBSD_LDFLAGS}
             Threads::Threads
             )
 endif ()

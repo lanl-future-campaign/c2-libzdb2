@@ -63,6 +63,10 @@ cd zfs
 ./configure --prefix=/opt/zfs
 make
 sudo make install
+
+export PATH="/opt/zfs/sbin:/opt/zfs/bin:${PATH}"
+export LD_LIBRARY_PATH="/opt/zfs/lib:${LD_LIBRARY_PATH}"
+export PKG_CONFIG_PATH=/opt/zfs/lib/pkgconfig:"${PKG_CONFIG_PATH}"
 ```
 
 # Build LibZDB
@@ -74,8 +78,7 @@ git clone https://github.com/lanl-future-campaign/c2-libzdb2.git
 cd c2-libzdb2
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release \
--DZFS_SOURCE_HOME=${HOME}/zfs ..
+cmake -DZFS_SOURCE_HOME=${HOME}/zfs ..
 make
 ```
 
@@ -86,11 +89,7 @@ git clone https://github.com/lanl-future-campaign/c2-libzdb2.git
 cd c2-libzdb2
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release \
--DCMAKE_PREFIX_PATH=/opt/zfs \
--DSPL_INCLUDE=/opt/zfs/include/libspl \
--DZFS_INCLUDE=/opt/zfs/include/libzfs \
--DZFS_INTERNAL_INCLUDE=/opt/zfs/src/zfs-2.1.99/include ..
+cmake ..
 make
 ```
 
