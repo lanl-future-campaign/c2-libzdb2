@@ -93,3 +93,67 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 -DZFS_INTERNAL_INCLUDE=/opt/zfs/src/zfs-2.1.99/include ..
 make
 ```
+
+# Example test case
+
+First, create a simple `raidz1` zpool backed by four plain files.
+
+```bash
+for i in 1 2 3 4; do
+	dd if=/dev/urandom of=file$i bs=1M count=64
+done
+
+sudo modprobe zfs
+sudo /opt/zfs/sbin/zpool create mypool raidz1 `pwd`/file1 `pwd`/file2 `pwd`/file3 `pwd`/file4
+sudo /opt/zfs/sbin/zpool status
+  pool: mypool
+ state: ONLINE
+config:
+
+	NAME                       STATE     READ WRITE CKSUM
+	mypool                     ONLINE       0     0     0
+	  raidz1-0                 ONLINE       0     0     0
+	    /home/qingzheng/file1  ONLINE       0     0     0
+	    /home/qingzheng/file2  ONLINE       0     0     0
+	    /home/qingzheng/file3  ONLINE       0     0     0
+	    /home/qingzheng/file4  ONLINE       0     0     0
+
+errors: No known data errors
+```
+
+Next, insert a 128K file into the newly created zpool.
+
+```bash
+dd if=/dev/urandom of=myfile bs=128K count=1
+sudo cp myfile /mypool
+```
+
+Then, use `zdb` to show the DVAs of the file we just inserted.
+
+```bash
+sudo /opt/zfs/sbin/zdb -vvvvv -O -bb mypool myfile
+obj=2 dataset=mypool path=/myfile type=19 bonustype=44
+
+    Object  lvl   iblk   dblk  dsize  dnsize  lsize   %full  type
+         2    1   128K   128K   128K     512   128K  100.00  ZFS plain file (K=inherit) (Z=inherit=lz4)
+                                               184   bonus  System attributes
+	dnode flags: USED_BYTES USERUSED_ACCOUNTED USEROBJUSED_ACCOUNTED
+	dnode maxblkid: 0
+	uid     0
+	gid     0
+	atime	Wed Aug 17 22:50:31 2022
+	mtime	Wed Aug 17 22:50:31 2022
+	ctime	Wed Aug 17 22:50:31 2022
+	crtime	Wed Aug 17 22:50:31 2022
+	gen	38
+	mode	100644
+	size	131072
+	parent	34
+	links	1
+	pflags	840800000004
+	xattr	3
+Indirect blocks:
+               0 L0 DVA[0]=<0:4005c00:2ac00> [L0 ZFS plain file] fletcher4 uncompressed unencrypted LE contiguous unique single size=20000L/20000P birth=38L/38P fill=1 cksum=401a079a3d42:10003bc6e83bb43b:e0f600df0713fa2:5d57ed649a9e3068
+
+		segment [0000000000000000, 0000000000020000) size  128K
+```
