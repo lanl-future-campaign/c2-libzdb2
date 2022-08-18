@@ -1,0 +1,59 @@
+name: CMake
+
+on: [push, pull_request]
+
+jobs:
+  libzdb:
+    strategy:
+        matrix:
+            os:  [ubuntu-22.04]
+            zfs: [package, source]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Cache ZFS-2.1.5
+      id: cache-zfs
+      if: matrix.zfs == 'source'
+      uses: actions/cache@v3
+      with:
+        path: ~/zfs
+        key: zfs-2.1.5
+
+    - name: Update apt
+      run: sudo apt update
+
+    - name: Install Dependencies
+      run: sudo apt install -y libbsd-dev
+
+    - name: Install ZFS Packages
+      if: matrix.zfs == 'package'
+      run: |
+        sudo apt install -yq libzfslinux-dev zfs-dkms wget
+        sudo wget https://raw.githubusercontent.com/openzfs/zfs/$(zfs --version | grep -o "zfs-[0-9]\+.[0-9]\+.[0-9]\+")/include/sys/zfs_ioctl.h -O /usr/include/libzfs/sys/zfs_ioctl.h
+
+    - name: Build Source
+      if: ${{ (matrix.zfs == 'source') && (steps.cache-zfs.outputs.cache-hit != 'true') }}
+      run: ci/zfs-2.1.5.sh ~/zfs
+
+    - name: Set Up ZFS
+      if: matrix.zfs == 'source'
+      run: sudo ~/zfs/scripts/zfs.sh
+
+    - name: Configure CMake with ZFS package
+      if: matrix.zfs == 'package'
+      run: cmake -B ${{github.workspace}}/build -DZFS_DEBUG=On
+
+    - name: Configure CMake with ZFS source
+      if: matrix.zfs == 'source'
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_VERBOSE_MAKEFILE=On -DZFS_SOURCE_HOME=~/zfs
+      env:
+        PKG_CONFIG_PATH: "~/zfs/lib/libzfs:${PKG_CONFIG_PATH}"
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build
+
+    - name: Test
+      run: sudo ci/test.sh ~/zfs ${{github.workspace}}/build/src/zdb
