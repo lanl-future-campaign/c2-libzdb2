@@ -4,16 +4,20 @@ set -e
 
 ZFS="$(realpath $1)"
 LIBZDB="$(realpath $2)"
+RECONSTRUCT="$(realpath $3)"
 
 # can probably be input args
 ashift=12
 zpool_name="local_zpool"
 zpool_root="/${zpool_name}"
 backing_count=6
+record_size=1M
+record_size_bytes=1048576
 filebase="file"
 filename="${zpool_root}/${filebase}"
 bs=128K
 count=1
+reconstructed="/tmp/reconstructed"
 
 # backing files instead of drives
 backing=()
@@ -42,6 +46,7 @@ set -x
 for zpool_type in "" mirror raidz{1..3}
 do
     zpool create -f -o ashift="${ashift}" "${zpool_name}" ${zpool_type} "${backing[@]}"
+    zfs set recordsize="${record_size}" "${zpool_name}"
 
     if [[ ! -f "/etc/zfs/zpool.cache" ]]
     then
@@ -54,7 +59,12 @@ do
 
     sync -f "${filename}"
 
-    "${LIBZDB}" "${zpool_name}" "${filebase}"
+    # reconstruct the file
+    "${LIBZDB}" "${zpool_name}" "${filebase}" | "${RECONSTRUCT}" "${reconstructed}" "${record_size_bytes}"
+
+    diff "${filename}" "${reconstructed}"
+
+    rm "${reconstructed}"
 
     zpool destroy "${zpool_name}"
 done

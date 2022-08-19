@@ -81,3 +81,5 @@ else ()
             Threads::Threads
             )
 endif ()
+
+add_executable(reconstruct reconstruct.cpp)

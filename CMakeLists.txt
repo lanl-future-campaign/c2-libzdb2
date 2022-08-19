@@ -31,7 +31,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 cmake_minimum_required(VERSION 3.1)
-project(C2-LIBZDB2 C)
+project(C2-LIBZDB2 C CXX)
 
 # Build against a ZFS source tree rather than an installed version of ZFS.
 # For this to work, the ZFS source tree must have gone through the build process (i.e.,

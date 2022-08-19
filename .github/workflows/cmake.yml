@@ -56,4 +56,4 @@ jobs:
       run: cmake --build ${{github.workspace}}/build
 
     - name: Test
-      run: sudo ci/test.sh ~/zfs ${{github.workspace}}/build/src/zdb
+      run: sudo ci/test.sh ~/zfs ${{github.workspace}}/build/src/zdb ${{github.workspace}}/build/src/reconstruct
