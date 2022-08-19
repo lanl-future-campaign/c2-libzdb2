@@ -48,7 +48,7 @@ jobs:
 
     - name: Configure CMake with ZFS source
       if: matrix.zfs == 'source'
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_VERBOSE_MAKEFILE=On -DZFS_SOURCE_HOME=~/zfs
+      run: cmake -B ${{github.workspace}}/build -DZFS_DEBUG=On -DCMAKE_VERBOSE_MAKEFILE=On -DZFS_SOURCE_HOME=~/zfs
       env:
         PKG_CONFIG_PATH: "~/zfs/lib/libzfs:${PKG_CONFIG_PATH}"
 
