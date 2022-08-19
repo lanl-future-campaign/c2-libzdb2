@@ -46,6 +46,20 @@ endif ()
 
 target_include_directories(zdb PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
+# find libraries inside ZFS that are expected to always exist
+function(find_zfs_lib VAR NAME)
+  set(LIBNAME "lib${NAME}.so")
+  execute_process(COMMAND find "${ZFS_SOURCE_HOME}" -name "${LIBNAME}"
+    OUTPUT_VARIABLE ${VAR}
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if (NOT "${${VAR}}" STREQUAL "")
+    set(${VAR} "${${VAR}}" PARENT_SCOPE)
+    message(STATUS "${LIBNAME} found at ${${VAR}}")
+  else()
+    message(FATAL_ERROR "${LIBNAME} not found")
+  endif()
+endfunction()
+
 if (ZFS_SOURCE_HOME STREQUAL "")
     pkg_check_modules(ZFS REQUIRED libzfs)
 
@@ -56,25 +70,14 @@ else ()
     target_include_directories(zdb PRIVATE ${ZFS_SOURCE_HOME}/lib/libspl/include)
     target_include_directories(zdb PRIVATE ${ZFS_SOURCE_HOME}/lib/libspl/include/os/linux)
 
-    execute_process(COMMAND find "${ZFS_SOURCE_HOME}" -name "libzpool.so"
-            OUTPUT_VARIABLE LIBZPOOL
-            OUTPUT_STRIP_TRAILING_WHITESPACE)
-    message(STATUS "libzpool.so found at ${LIBZPOOL}")
-
-    execute_process(COMMAND find "${ZFS_SOURCE_HOME}" -name "libzfs_core.so"
-            OUTPUT_VARIABLE LIBZFS_CORE
-            OUTPUT_STRIP_TRAILING_WHITESPACE)
-    message(STATUS "libzfs_core.so found at ${LIBZFS_CORE}")
-
-    execute_process(COMMAND find "${ZFS_SOURCE_HOME}" -name "libnvpair.so"
-            OUTPUT_VARIABLE LIBNVPAIR
-            OUTPUT_STRIP_TRAILING_WHITESPACE)
-    message(STATUS "libnvpair.so found at ${LIBNVPAIR}")
+    find_zfs_lib(ZPOOL    zpool)
+    find_zfs_lib(ZFS_CORE zfs_core)
+    find_zfs_lib(NVPAIR   nvpair)
 
     target_link_libraries(zdb
-            ${LIBZPOOL}
-            ${LIBZFS_CORE}
-            ${LIBNVPAIR}
+            ${ZPOOL}
+            ${ZFS_CORE}
+            ${NVPAIR}
             Threads::Threads
             )
 endif ()
