@@ -49,6 +49,10 @@ do
     zpool status
 
     dd if=/dev/urandom of="${filename}" bs="${filesize}" count=1
+    
+    sync -f "${filename}"
+    
+    sleep 5
 
     "${LIBZDB}" "${zpool_name}" "${filebase}"
 
