@@ -52,8 +52,6 @@ if (ZFS_SOURCE_HOME STREQUAL "")
     target_include_directories(zdb PRIVATE ${ZFS_INCLUDE_DIRS})
     target_link_libraries(zdb ${ZFS_LDFLAGS} zpool Threads::Threads)
 else ()
-    pkg_check_modules(LIBBSD REQUIRED libbsd)
-
     target_include_directories(zdb PRIVATE ${ZFS_SOURCE_HOME}/include)
     target_include_directories(zdb PRIVATE ${ZFS_SOURCE_HOME}/lib/libspl/include)
     target_include_directories(zdb PRIVATE ${ZFS_SOURCE_HOME}/lib/libspl/include/os/linux)
@@ -63,6 +61,11 @@ else ()
             OUTPUT_STRIP_TRAILING_WHITESPACE)
     message(STATUS "libzpool.so found at ${LIBZPOOL}")
 
+    execute_process(COMMAND find "${ZFS_SOURCE_HOME}" -name "libzfs_core.so"
+            OUTPUT_VARIABLE LIBZFS_CORE
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message(STATUS "libzfs_core.so found at ${LIBZFS_CORE}")
+
     execute_process(COMMAND find "${ZFS_SOURCE_HOME}" -name "libnvpair.so"
             OUTPUT_VARIABLE LIBNVPAIR
             OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -70,8 +73,8 @@ else ()
 
     target_link_libraries(zdb
             ${LIBZPOOL}
+            ${LIBZFS_CORE}
             ${LIBNVPAIR}
-            ${LIBBSD_LDFLAGS}
             Threads::Threads
             )
 endif ()
