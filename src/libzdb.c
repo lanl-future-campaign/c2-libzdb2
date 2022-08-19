@@ -339,7 +339,7 @@ dump_object(objset_t *os, uint64_t object, zpool_vdevs_t *vdevs) {
 
     dump_indirect(dn, doi.doi_max_offset, &block_list);
 
-    printf("file size: %zu(%zu blocks)\n", fsize, block_list.count);
+    printf("file size: %zu (%zu blocks)\n", fsize, block_list.count);
 
     /* add extra info to get last chunk's size */
     info_t *extra = malloc(sizeof(info_t));
