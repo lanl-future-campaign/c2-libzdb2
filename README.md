@@ -82,7 +82,7 @@ make
 The other is to build LibZDB against the ZFS we just installed.
 
 ```bash
-git clone https://github.com/lanl-future-campaign/c2-libzdb2.git
+git clone -b zfs-2.1.5 https://github.com/lanl-future-campaign/c2-libzdb2.git
 cd c2-libzdb2
 mkdir build
 cd build
