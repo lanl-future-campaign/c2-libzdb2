@@ -45,7 +45,7 @@ endif ()
 # ./autogen.sh, ./configure, and make must have been called) though it does not have
 # to be installed (make install)
 set(ZFS_SOURCE_HOME "" CACHE PATH "ZFS source directory")
-set(ZFS_DEBUG OFF CACHE BOOL "Whether ZFS was compiled with debug")
+set(ZFS_DEBUG ON CACHE BOOL "Whether ZFS was compiled with debug" FORCE)
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)

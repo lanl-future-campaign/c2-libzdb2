@@ -28,7 +28,7 @@ for more information.
 
 # ZFS
 
-This codebase targets the latest ZFS master branch (ZFS 2.1.99 at the moment).
+This codebase targets ZFS 2.1.5.
 
 # Software requirements
 
@@ -57,7 +57,7 @@ target. Installing ZFS is not required to compile LibZDB2 (but is required to ru
 
 ```bash
 cd ${HOME}
-git clone https://github.com/openzfs/zfs
+git clone -b zfs-2.1.5 https://github.com/openzfs/zfs
 cd zfs
 ./autogen.sh
 ./configure --prefix=/opt/zfs
@@ -90,7 +90,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 -DCMAKE_PREFIX_PATH=/opt/zfs \
 -DSPL_INCLUDE=/opt/zfs/include/libspl \
 -DZFS_INCLUDE=/opt/zfs/include/libzfs \
--DZFS_INTERNAL_INCLUDE=/opt/zfs/src/zfs-2.1.99/include ..
+-DZFS_INTERNAL_INCLUDE=/opt/zfs/src/zfs-2.1.5/include ..
 make
 ```
 

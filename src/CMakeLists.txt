@@ -48,15 +48,16 @@ if (ZFS_SOURCE_HOME STREQUAL "")
     find_package(SPL MODULE REQUIRED)
     find_package(ZFS MODULE REQUIRED)
     target_include_directories(zdb PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(zdb spl zpool nvpair Threads::Threads)
+    target_link_libraries(zdb spl zpool zfs_core nvpair Threads::Threads)
 else ()
     target_include_directories(zdb PRIVATE ${CMAKE_SOURCE_DIR}/include)
     target_include_directories(zdb PRIVATE ${ZFS_SOURCE_HOME}/include)
     target_include_directories(zdb PRIVATE ${ZFS_SOURCE_HOME}/lib/libspl/include)
     target_include_directories(zdb PRIVATE ${ZFS_SOURCE_HOME}/lib/libspl/include/os/linux)
     target_link_libraries(zdb
-            "${ZFS_SOURCE_HOME}/.libs/libzpool.so"
-            "${ZFS_SOURCE_HOME}/.libs/libnvpair.so"
+            "${ZFS_SOURCE_HOME}/lib/libzpool/.libs/libzpool.so"
+            "${ZFS_SOURCE_HOME}/lib/libzfs_core/.libs/libzfs_core.so"
+            "${ZFS_SOURCE_HOME}/lib/libnvpair/.libs/libnvpair.so"
             Threads::Threads
             )
 endif ()
