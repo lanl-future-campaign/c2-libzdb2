@@ -171,3 +171,36 @@ col=02 devidx=03 dev=/home/qingzheng/file4 offset=4217344 size=32768
 col=03 devidx=04 dev=/home/qingzheng/file5 offset=4217344 size=32768
 col=04 devidx=00 dev=/home/qingzheng/file1 offset=4217856 size=32768
 ```
+
+# Verify results
+
+Use the following to verify that `dev=/home/qingzheng/file3 offset=4217344` is indeed storing the first 32K bytes of the
+file.
+
+```bash
+dd if=myfile skip=0 bs=32768 count=1 | xxd | head
+00000000: af0f 8e21 a8c4 f337 75f5 76eb f386 6e6c  ...!...7u.v...nl
+00000010: cb0a 4940 43f8 13aa c668 639d 75ae c552  ..I@C....hc.u..R
+00000020: 91c9 30e5 08cf a467 2914 4cc1 e37d dcf6  ..0....g).L..}..
+00000030: 0811 39be 2526 f154 190b db00 effa c0aa  ..9.%&.T........
+00000040: 463d 2e86 3ef1 dc41 7505 1ca3 b63a e15e  F=..>..Au....:.^
+00000050: 8a19 f38f 68e1 a561 8160 e9c4 959f 29b2  ....h..a.`....).
+00000060: 4ff4 77c0 170e c71e 89c6 7101 79b4 4599  O.w.......q.y.E.
+00000070: 9866 9aaf 098f 3790 2e20 d11c a413 4612  .f....7.. ....F.
+00000080: 2573 70a9 7602 cdcb bea0 60eb 8afe 8e3a  %sp.v.....`....:
+00000090: 3538 e980 eeb3 b676 0c70 014b cd99 d294  58.....v.p.K....
+```
+
+```bash
+dd if=file3 skip=4217344 bs=1 count=32768 | xxd | head
+00000000: af0f 8e21 a8c4 f337 75f5 76eb f386 6e6c  ...!...7u.v...nl
+00000010: cb0a 4940 43f8 13aa c668 639d 75ae c552  ..I@C....hc.u..R
+00000020: 91c9 30e5 08cf a467 2914 4cc1 e37d dcf6  ..0....g).L..}..
+00000030: 0811 39be 2526 f154 190b db00 effa c0aa  ..9.%&.T........
+00000040: 463d 2e86 3ef1 dc41 7505 1ca3 b63a e15e  F=..>..Au....:.^
+00000050: 8a19 f38f 68e1 a561 8160 e9c4 959f 29b2  ....h..a.`....).
+00000060: 4ff4 77c0 170e c71e 89c6 7101 79b4 4599  O.w.......q.y.E.
+00000070: 9866 9aaf 098f 3790 2e20 d11c a413 4612  .f....7.. ....F.
+00000080: 2573 70a9 7602 cdcb bea0 60eb 8afe 8e3a  %sp.v.....`....:
+00000090: 3538 e980 eeb3 b676 0c70 014b cd99 d294  58.....v.p.K....
+```
