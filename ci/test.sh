@@ -12,7 +12,8 @@ zpool_root="/${zpool_name}"
 backing_count=6
 filebase="file"
 filename="${zpool_root}/${filebase}"
-filesize=128K
+bs=128K
+count=1
 
 # backing files instead of drives
 backing=()
@@ -49,7 +50,7 @@ do
 
     zpool status
 
-    dd if=/dev/urandom of="${filename}" bs="${filesize}" count=1
+    dd if=/dev/urandom of="${filename}" bs="${bs}" count="${count}"
 
     sync -f "${filename}"
 
