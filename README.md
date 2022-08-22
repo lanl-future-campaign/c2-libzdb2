@@ -170,3 +170,12 @@ col=01 devidx=03 dev=/home/qingzheng/file4 offset=541093888 size=45056
 col=02 devidx=00 dev=/home/qingzheng/file1 offset=541097984 size=45056
 col=03 devidx=01 dev=/home/qingzheng/file2 offset=541097984 size=40960
 ```
+
+Pipe the output of libzdb2 to the reconstruct executable to generate a
+file from the physical offsets and sizes. The file should be an exact
+replica of the original file.
+
+```bash
+src/zdb mypool myfile | src/reconstruct /tmp/reconstructed 131072
+diff /mypool/myfile /tmp/reconstructed # no difference
+```
