@@ -95,7 +95,6 @@ int main(int argc, char *argv[]) {
     // read stanzas
     std::string line;
     while (std::getline(std::cin, line) && (rc == 0)) {
-        std::cout << line << std::endl;
         // stanza start
         // file_offset=%zu vdev=%s io_offset=%zu record_size=%zu
         if (line.substr(0, FILE_OFFSET.size()) == FILE_OFFSET) {
