@@ -11,8 +11,7 @@ ashift=12
 zpool_name="local_zpool"
 zpool_root="/${zpool_name}"
 backing_count=6
-record_size=1M
-record_size_bytes=1048576
+record_size=1048576
 filebase="file"
 filename="${zpool_root}/${filebase}"
 bs=2M
@@ -38,6 +37,7 @@ then
 fi
 
 zpool destroy "${zpool_name}" || true
+rm -rf "${reconstructed}"
 sync
 
 set -x
@@ -60,7 +60,7 @@ do
     sync -f "${filename}"
 
     # reconstruct the file
-    "${LIBZDB}" "${zpool_name}" "${filebase}" | "${RECONSTRUCT}" "${reconstructed}" "${record_size_bytes}"
+    "${LIBZDB}" "${zpool_name}" "${filebase}" | "${RECONSTRUCT}" "${reconstructed}" "${record_size}"
 
     diff "${filename}" "${reconstructed}"
 

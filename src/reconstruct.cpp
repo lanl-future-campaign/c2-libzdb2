@@ -56,7 +56,7 @@ static int process_stanza_body(const std::string &dev_col, const std::string &of
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
+    if (argc < 3) {
         std::cerr << "Syntax: " << argv[0] << " output_file record_size" << std::endl;
         return 1;
     }
