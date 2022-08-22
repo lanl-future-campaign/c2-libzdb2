@@ -15,7 +15,7 @@ record_size=1M
 record_size_bytes=1048576
 filebase="file"
 filename="${zpool_root}/${filebase}"
-bs=128K
+bs=2M
 count=1
 reconstructed="/tmp/reconstructed"
 
