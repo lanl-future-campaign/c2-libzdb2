@@ -60,7 +60,7 @@ do
     sync -f "${filename}"
 
     # reconstruct the file
-    "${LIBZDB}" "${zpool_name}" "${filebase}" | "${RECONSTRUCT}" "${reconstructed}" "${record_size}"
+    "${LIBZDB}" "${zpool_name}" "${filebase}" | "${RECONSTRUCT}" "${reconstructed}"
 
     diff "${filename}" "${reconstructed}"
 
