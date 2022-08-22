@@ -164,7 +164,7 @@ Run `src/zdb` (libzdb2) to get the listing of the physical locations of data blo
 
 ```bash
 src/zdb mypool myfile
-file size: 131072(1 blocks)
+file size: 131072 (1 blocks)
 file_offset=0 vdev=0 io_offset=2147606528 record_size=131072
 col=01 devidx=03 dev=/home/qingzheng/file4 offset=541093888 size=45056
 col=02 devidx=00 dev=/home/qingzheng/file1 offset=541097984 size=45056
@@ -176,6 +176,6 @@ file from the physical offsets and sizes. The file should be an exact
 replica of the original file.
 
 ```bash
-src/zdb mypool myfile | src/reconstruct /tmp/reconstructed 131072
-diff /mypool/myfile /tmp/reconstructed # no difference
+src/zdb mypool myfile | src/reconstruct /tmp/reconstructed
+diff /mypool/myfile /tmp/reconstructed # should have no difference
 ```
