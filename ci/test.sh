@@ -8,11 +8,11 @@ RECONSTRUCT="$(realpath $3)"
 
 # can probably be input args
 ashift=12
-zpool_name="local_zpool"
+zpool_name="mypool"
 zpool_root="/${zpool_name}"
 backing_count=6
 record_size=1048576
-filebase="file"
+filebase="myfile"
 filename="${zpool_root}/${filebase}"
 bs=2M
 count=1
@@ -55,7 +55,7 @@ do
 
     zpool status
 
-    dd if=/dev/urandom of="${filename}" bs="${bs}" count="${count}"
+    dd if=/dev/urandom of="${filename}" bs="${bs}" count="${count}" status=none
 
     sync -f "${filename}"
 
