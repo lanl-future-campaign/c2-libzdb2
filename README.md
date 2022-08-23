@@ -101,11 +101,11 @@ First, create a simple `raidz1` zpool backed by four plain files.
 
 ```bash
 for i in 1 2 3 4; do
-	dd if=/dev/urandom of=file$i bs=1M count=64
+	dd if=/dev/urandom of=/tmp/file$i bs=1M count=64
 done
 
 sudo modprobe zfs
-sudo /opt/zfs/sbin/zpool create mypool raidz1 `pwd`/file1 `pwd`/file2 `pwd`/file3 `pwd`/file4
+sudo /opt/zfs/sbin/zpool create mypool raidz1 /tmp/file1 /tmp/file2 /tmp/file3 /tmp/file4
 sudo /opt/zfs/sbin/zpool status
   pool: mypool
  state: ONLINE
@@ -114,10 +114,10 @@ config:
 	NAME                       STATE     READ WRITE CKSUM
 	mypool                     ONLINE       0     0     0
 	  raidz1-0                 ONLINE       0     0     0
-	    /home/qingzheng/file1  ONLINE       0     0     0
-	    /home/qingzheng/file2  ONLINE       0     0     0
-	    /home/qingzheng/file3  ONLINE       0     0     0
-	    /home/qingzheng/file4  ONLINE       0     0     0
+	    /tmp/file1  ONLINE       0     0     0
+	    /tmp/file2  ONLINE       0     0     0
+	    /tmp/file3  ONLINE       0     0     0
+	    /tmp/file4  ONLINE       0     0     0
 
 errors: No known data errors
 ```
@@ -166,9 +166,9 @@ Run `src/zdb` (libzdb2) to get the listing of the physical locations of data blo
 src/zdb mypool myfile
 file size: 131072 (1 blocks)
 file_offset=0 vdev=0 io_offset=2147606528 record_size=131072
-col=01 vdevidx=03 dev=/home/qingzheng/file4 offset=541093888 size=45056
-col=02 vdevidx=00 dev=/home/qingzheng/file1 offset=541097984 size=45056
-col=03 vdevidx=01 dev=/home/qingzheng/file2 offset=541097984 size=40960
+col=01 vdevidx=03 dev=/tmp/file4 offset=541093888 size=45056
+col=02 vdevidx=00 dev=/tmp/file1 offset=541097984 size=45056
+col=03 vdevidx=01 dev=/tmp/file2 offset=541097984 size=40960
 ```
 
 Pipe the output of libzdb2 to the reconstruct executable to generate a
