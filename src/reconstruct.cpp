@@ -84,6 +84,7 @@ int main(int argc, char *argv[]) {
         if (line.substr(0, FILE_OFFSET.size()) == FILE_OFFSET) {
             std::size_t file_offset = 0;
             std::size_t record_size = 0;
+
             static const std::string format = FILE_OFFSET + "%zu vdev=%*s io_offset=%*zu record_size=%zu";
             if (std::sscanf(line.c_str(), format.c_str(), &file_offset, &record_size) != 2) {
                 std::cerr << "Error: Could not parse start of stanza: \"" << line << "\"" << std::endl;
@@ -108,7 +109,7 @@ int main(int argc, char *argv[]) {
             stanza_blocks++;
         }
         // stanza body
-        // col=%zu devidx=%zu dev=%s offset=%zu size=%zu
+        // col=%zu vdevidx=%zu dev=%s offset=%zu size=%zu
         else if (line.substr(0, COL.size()) == COL) {
             std::stringstream s(line);
             s.ignore(line.size(), ' '); // ignore col
@@ -132,7 +133,7 @@ int main(int argc, char *argv[]) {
                                      offset, size, devs, buf, output);
         }
         // stanza body
-        // devidx=%zu dev=%s offset=%zu size=%zu
+        // vdevidx=%zu dev=%s offset=%zu size=%zu
         else if (line.substr(0, VDEVIDX.size()) == VDEVIDX) {
             std::stringstream s(line);
             s.ignore(line.size(), ' '); // ignore devidx
