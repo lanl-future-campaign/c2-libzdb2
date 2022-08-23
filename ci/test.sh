@@ -62,7 +62,7 @@ do
     # get physical locations of data and reconstruct the file
     "${LIBZDB}" "${zpool_name}" "${filebase}" | tee /dev/stderr | "${RECONSTRUCT}" "${reconstructed}"
 
-    diff "${filename}" "${reconstructed}"
+    cmp "${filename}" "${reconstructed}"
 
     rm "${reconstructed}"
 

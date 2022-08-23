@@ -177,5 +177,5 @@ replica of the original file.
 
 ```bash
 src/zdb mypool myfile | src/reconstruct /tmp/reconstructed
-diff /mypool/myfile /tmp/reconstructed # should have no difference
+cmp /mypool/myfile /tmp/reconstructed # should have no difference
 ```
