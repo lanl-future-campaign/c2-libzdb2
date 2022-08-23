@@ -11,10 +11,9 @@ ashift=12
 zpool_name="mypool"
 zpool_root="/${zpool_name}"
 backing_count=6
-record_size=1048576
 filebase="myfile"
 filename="${zpool_root}/${filebase}"
-bs=2M
+bs=1M
 count=1
 reconstructed="/tmp/reconstructed"
 
@@ -46,7 +45,6 @@ set -x
 for zpool_type in "" mirror raidz{1..3}
 do
     zpool create -f -o ashift="${ashift}" "${zpool_name}" ${zpool_type} "${backing[@]}"
-    zfs set recordsize="${record_size}" "${zpool_name}"
 
     if [[ ! -f "/etc/zfs/zpool.cache" ]]
     then
