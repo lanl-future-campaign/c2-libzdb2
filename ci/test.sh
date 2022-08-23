@@ -59,8 +59,8 @@ do
 
     sync -f "${filename}"
 
-    # reconstruct the file
-    "${LIBZDB}" "${zpool_name}" "${filebase}" | "${RECONSTRUCT}" "${reconstructed}"
+    # get physical locations of data and reconstruct the file
+    "${LIBZDB}" "${zpool_name}" "${filebase}" | tee /dev/stderr | "${RECONSTRUCT}" "${reconstructed}"
 
     diff "${filename}" "${reconstructed}"
 
