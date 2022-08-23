@@ -166,9 +166,9 @@ Run `src/zdb` (libzdb2) to get the listing of the physical locations of data blo
 src/zdb mypool myfile
 file size: 131072 (1 blocks)
 file_offset=0 vdev=0 io_offset=2147606528 record_size=131072
-col=01 devidx=03 dev=/home/qingzheng/file4 offset=541093888 size=45056
-col=02 devidx=00 dev=/home/qingzheng/file1 offset=541097984 size=45056
-col=03 devidx=01 dev=/home/qingzheng/file2 offset=541097984 size=40960
+col=01 vdevidx=03 dev=/home/qingzheng/file4 offset=541093888 size=45056
+col=02 vdevidx=00 dev=/home/qingzheng/file1 offset=541097984 size=45056
+col=03 vdevidx=01 dev=/home/qingzheng/file2 offset=541097984 size=40960
 ```
 
 Pipe the output of libzdb2 to the reconstruct executable to generate a

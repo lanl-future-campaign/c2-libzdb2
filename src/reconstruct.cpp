@@ -4,18 +4,14 @@
 #include <sstream>
 
 const std::string FILE_OFFSET = "file_offset=";
-const std::string RECORD_SIZE = "record_size=";
 const std::string COL         = "col=";
 const std::string VDEVIDX     = "vdevidx=";
 const std::string DEV         = "dev=";
-const std::string OFFSET      = "offset=";
-const std::string SIZE        = "size=";
 
-static int process_stanza_body(const std::string &dev_col, const std::string &offset_col,
-                               const std::string &size_col, std::map <std::string, std::ifstream *> &devs,
+static int process_stanza_body(const std::string &dev_name, const std::size_t offset,
+                               const std::size_t size, std::map <std::string, std::ifstream *> &devs,
                                char *buf, std::ofstream &output) {
     // find previously opened device
-    const std::string dev_name = dev_col.substr(DEV.size(), std::string::npos);
     std::istream *dev = nullptr;
     std::map <std::string, std::ifstream *>::const_iterator it = devs.find(dev_name);
     if (it == devs.end()) {
@@ -31,16 +27,6 @@ static int process_stanza_body(const std::string &dev_col, const std::string &of
     }
     else {
         dev = it->second;
-    }
-
-    std::stringstream offset_ss(offset_col.substr(OFFSET.size(), std::string::npos));
-    std::stringstream size_ss(size_col.substr(SIZE.size(), std::string::npos));
-
-    size_t offset = 0;
-    size_t size = 0;
-    if (!(offset_ss >> offset) || !(size_ss >> size)) {
-        std::cerr << "Error: Could not read offset and/or size " << offset << " " << size << std::endl;
-        return 1;
     }
 
     if (!dev->seekg(offset, std::ios_base::beg)) {
@@ -69,17 +55,23 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // trash string
-    std::string str;
-
-    // ignore first line
     // file size: %zu (%zu blocks)
-    std::getline(std::cin, str);
+    std::size_t expected_size = 0;
+    std::size_t expected_blocks = 0;
+    if (std::scanf("file size: %zu (%zu blocks)\n", &expected_size, &expected_blocks) != 2) {
+        std::cerr << "Error: Could not parse first line of input" << std::endl;
+        return 1;
+    }
 
     int rc = 0;
 
+    std::size_t stanza_start_size = 0;
+    std::size_t stanza_blocks     = 0;
+    std::size_t stanza_row_size   = 0;
+
+    // buffer for reading from drives
     char *buf = nullptr;
-    size_t buf_size = 0;
+    std::size_t buf_size = 0;
 
     // avoid reopening devices
     std::map <std::string, std::ifstream *> devs;
@@ -87,17 +79,14 @@ int main(int argc, char *argv[]) {
     // read stanzas
     std::string line;
     while (std::getline(std::cin, line) && (rc == 0)) {
-        std::stringstream s(line);
-
         // stanza start
         // file_offset=%zu vdev=%s io_offset=%zu record_size=%zu
         if (line.substr(0, FILE_OFFSET.size()) == FILE_OFFSET) {
-            s.seekg(FILE_OFFSET.size(), std::ios_base::beg);
-
-            size_t file_offset = 0;
-            std::string record_size_col;
-            if (!(s >> file_offset >> str >> str >> record_size_col)) {
-                std::cerr << "Error: Could not read start of stanza: \"" << line << "\"" << std::endl;
+            std::size_t file_offset = 0;
+            std::size_t record_size = 0;
+            static const std::string format = FILE_OFFSET + "%zu vdev=%*s io_offset=%*zu record_size=%zu";
+            if (std::sscanf(line.c_str(), format.c_str(), &file_offset, &record_size) != 2) {
+                std::cerr << "Error: Could not parse start of stanza: \"" << line << "\"" << std::endl;
                 rc = 1;
                 break;
             }
@@ -108,43 +97,62 @@ int main(int argc, char *argv[]) {
                 break;
             }
 
-            size_t record_size = 0;
-            if (!(std::stringstream(record_size_col.substr(RECORD_SIZE.size(), std::string::npos)) >> record_size)) {
-                std::cerr << "Error: Could not read record size: " << record_size_col << std::endl;
-                rc = 1;
-                break;
-            }
-
             if (record_size > buf_size) {
                 delete [] buf;
 
                 buf_size = record_size;
                 buf = new char[buf_size];
             }
+
+            stanza_start_size += record_size;
+            stanza_blocks++;
         }
         // stanza body
         // col=%zu devidx=%zu dev=%s offset=%zu size=%zu
         else if (line.substr(0, COL.size()) == COL) {
-            std::string dev_col, offset_col, size_col;
-            if (!(std::stringstream(line) >> str >> str >> dev_col >> offset_col >> size_col)) {
-                std::cerr << "Error: Could not read column \"" << line << "\"" << std::endl;
+            std::stringstream s(line);
+            s.ignore(line.size(), ' '); // ignore col
+            s.ignore(line.size(), ' '); // ignore devidx
+
+            std::string dev;
+            std::size_t offset;
+            std::size_t size;
+
+            static const std::string format = COL + "%*zu vdevidx=%*zu dev=%*s offset=%zu size=%zu";
+            if (!(s >> dev) ||
+                (std::sscanf(line.c_str(), format.c_str(), &offset, &size) != 2)) {
+                std::cerr << "Error: Could not parse line: \"" << line << "\"" << std::endl;
                 rc = 1;
                 break;
             }
 
-            rc = process_stanza_body(dev_col, offset_col, size_col, devs, buf, output);
+            stanza_row_size += size;
+
+            rc = process_stanza_body(dev.substr(DEV.size(), std::string::npos),
+                                     offset, size, devs, buf, output);
         }
         // stanza body
         // devidx=%zu dev=%s offset=%zu size=%zu
         else if (line.substr(0, VDEVIDX.size()) == VDEVIDX) {
-            std::string dev_col, offset_col, size_col;
-            if (!(s >> str >> dev_col >> offset_col >> size_col)) {
-                std::cerr << "Error: Could not read column \"" << line << "\"" << std::endl;
+            std::stringstream s(line);
+            s.ignore(line.size(), ' '); // ignore devidx
+
+            std::string dev;
+            std::size_t offset;
+            std::size_t size;
+
+            static const std::string format = VDEVIDX + "%*zu dev=%*s offset=%zu size=%zu";
+            if (!(s >> dev) ||
+                (std::sscanf(line.c_str(), format.c_str(), &offset, &size) != 2)) {
+                std::cerr << "Error: Could not parse line: \"" << line << "\"" << std::endl;
                 rc = 1;
                 break;
             }
 
-            rc = process_stanza_body(dev_col, offset_col, size_col, devs, buf, output);
+            stanza_row_size += size;
+
+            rc = process_stanza_body(dev.substr(DEV.size(), std::string::npos),
+                                     offset, size, devs, buf, output);
         }
         else {
             std::cerr << "Error: Got unexpected data in first column of \"" << line << "\"" << std::endl;
@@ -155,10 +163,24 @@ int main(int argc, char *argv[]) {
 
     output << std::flush;
 
-    for(decltype(devs)::value_type & dev : devs) {
+    for(decltype(devs)::value_type &dev : devs) {
         delete dev.second;
     }
     delete [] buf;
+
+    if (rc == 0) {
+        if (expected_size != stanza_start_size) {
+            std::cerr << "Warning: Sum of stanza sizes (" << stanza_start_size << ") does not match expected size (" << expected_size << ")" << std::endl;
+        }
+
+        if (expected_blocks != stanza_blocks) {
+            std::cerr << "Warning: Got " << stanza_blocks << " blocks of data even though input declared " << expected_blocks << std::endl;
+        }
+
+        if (expected_size != stanza_row_size) {
+            std::cerr << "Warning: Sum of stanza row sizes (" << stanza_row_size << ") does not match expected size (" << expected_size << ")" << std::endl;
+        }
+    }
 
     return rc;
 }
