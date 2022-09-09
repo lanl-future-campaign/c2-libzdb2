@@ -654,6 +654,16 @@ cleanup_vdevs(zpool_vdevs_t *vdevs)
 	free(vdevs);
 }
 
+static inline uint64_t
+CurrentMicros()
+{
+	uint64_t r;
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	r = (uint64_t) (tv.tv_sec) * 1000000 + tv.tv_usec;
+	return r;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -662,12 +672,18 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
+	uint64_t t0 = CurrentMicros();
 	memset(dump_opt, 0, sizeof(dump_opt));
 	kernel_init(SPA_MODE_READ);
 	zpool_vdevs_t *vdevs = dump_cachefile(ZPOOL_CACHE, argv[1]);
+	uint64_t t1 = CurrentMicros();
 	dump_path(argv[1], argv[2], vdevs);
+	uint64_t t2 = CurrentMicros();
+	printf("ZDB query time: %.3f s\n", (t2 - t1) / 1000000.0);
 	cleanup_vdevs(vdevs);
 	kernel_fini();
-
+	uint64_t t3 = CurrentMicros();
+	printf("Total: %.3f s\n", (t3 - t0) / 1000000.0);
+	printf("Done\n");
 	return 0;
 }
