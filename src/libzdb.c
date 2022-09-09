@@ -45,6 +45,7 @@
 #include <sys/dmu_objset.h>
 #include <sys/dsl_dataset.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/vdev_impl.h>
 #include <sys/zap.h>
 #include <sys/zfs_acl.h>
@@ -52,6 +53,8 @@
 #include <sys/zfs_sa.h>
 #include <sys/zfs_znode.h>
 #include <sys/zio.h>
+
+#include <dirent.h>
 
 /* a single block of data */
 typedef struct info {
@@ -389,6 +392,7 @@ dump_object(objset_t *os, uint64_t object, zpool_vdevs_t *vdevs)
 
 			break;
 		case RAIDZ:
+			printf(">>>%s\n", curpath);
 			c2_vdev_raidz_map_alloc(&zio, vdev->ashift, vdev->count,
 			    vdev->nparity, vdev->names, actual_size);
 			break;
@@ -595,9 +599,9 @@ dump_path_impl(objset_t *os, uint64_t obj, char *name, zpool_vdevs_t *vdevs)
 	strlcat(curpath, "/", sizeof(curpath));
 
 	switch (doi.doi_type) {
-	/* case DMU_OT_DIRECTORY_CONTENTS: */
-	/*   if (s != NULL && *(s + 1) != '\0') */
-	/*     return dump_path_impl(os, child_obj, s + 1); */
+	case DMU_OT_DIRECTORY_CONTENTS:
+		if (s != NULL && *(s + 1) != '\0')
+			return dump_path_impl(os, child_obj, s + 1, vdevs);
 	/*FALLTHROUGH*/
 	case DMU_OT_PLAIN_FILE_CONTENTS:
 		dump_object(os, child_obj, vdevs);
@@ -664,6 +668,89 @@ CurrentMicros()
 	return r;
 }
 
+void process_dir(int dsfd, char *ds, char *path, zpool_vdevs_t *vdevs);
+
+void
+process_dir_d(int dsfd, DIR *dir, char *ds, char *path, zpool_vdevs_t *vdevs)
+{
+	char *const tmp = (char *) malloc(4096);
+	strcpy(tmp, path);
+	size_t prefixlen = strlen(tmp);
+	strcpy(tmp + prefixlen, "/");
+	prefixlen += 1;
+	struct dirent *entry = readdir(dir);
+	while (entry) {
+		if (strcmp(entry->d_name, ".") == 0) {
+			// Ignore
+		} else if (strcmp(entry->d_name, "..") == 0) {
+			// Ignore
+		} else if (entry->d_type == DT_REG) {
+			strcpy(tmp + prefixlen, entry->d_name);
+			dump_path(ds, tmp, vdevs);
+		} else if (entry->d_type == DT_DIR) {
+			strcpy(tmp + prefixlen, entry->d_name);
+			process_dir(dsfd, ds, tmp, vdevs);
+		}
+		entry = readdir(dir);
+	}
+	free(tmp);
+}
+
+void
+process_dir(int dsfd, char *ds, char *path, zpool_vdevs_t *vdevs)
+{
+	int d = openat(dsfd, path, O_RDONLY | O_DIRECTORY);
+	if (d == -1) {
+		fprintf(stderr, "Cannot open %s: %s\n", path, strerror(errno));
+		return;
+	}
+	DIR *dir = fdopendir(d);
+	if (!dir) {
+		fprintf(stderr, "Cannot fd opendir %s: %s\n", path,
+		    strerror(errno));
+		close(d);
+		return;
+	}
+	process_dir_d(dsfd, dir, ds, path, vdevs);
+	closedir(dir);
+}
+
+void
+process_path(int dsfd, char *ds, char *path, zpool_vdevs_t *vdevs)
+{
+	struct stat statbuf;
+	int rv = fstatat(dsfd, path, &statbuf, AT_SYMLINK_NOFOLLOW);
+	if (rv != 0) {
+		fprintf(stderr, "Cannot lstat %s: %s\n", path, strerror(errno));
+	} else if (S_ISREG(statbuf.st_mode)) {
+		dump_path(ds, path, vdevs);
+	} else if (S_ISDIR(statbuf.st_mode)) {
+		process_dir(dsfd, ds, path, vdevs);
+	}
+}
+
+int
+run_program(int root, char *ds, char *path)
+{
+	int dsfd = openat(root, ds, O_RDONLY);
+	if (dsfd == -1) {
+		fprintf(stderr, "Cannot open %s: %s\n", path, strerror(errno));
+		return -1;
+	}
+
+	kernel_init(SPA_MODE_READ);
+	zpool_vdevs_t *vdevs = dump_cachefile(ZPOOL_CACHE, ds);
+	uint64_t t1 = CurrentMicros();
+	process_path(dsfd, ds, path, vdevs);
+	uint64_t t2 = CurrentMicros();
+	printf("ZDB query time: %.3f s\n", (t2 - t1) / 1000000.0);
+	cleanup_vdevs(vdevs);
+	kernel_fini();
+
+	close(dsfd);
+	return 0;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -672,18 +759,18 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	uint64_t t0 = CurrentMicros();
+	int root = open("/", O_RDONLY | O_DIRECTORY);
+	if (root == -1) {
+		fprintf(stderr, "Cannot open \"/\": %s\n", strerror(errno));
+		return EXIT_FAILURE;
+	}
+
 	memset(dump_opt, 0, sizeof(dump_opt));
-	kernel_init(SPA_MODE_READ);
-	zpool_vdevs_t *vdevs = dump_cachefile(ZPOOL_CACHE, argv[1]);
+	uint64_t t0 = CurrentMicros();
+	int r = run_program(root, argv[1], argv[2]);
 	uint64_t t1 = CurrentMicros();
-	dump_path(argv[1], argv[2], vdevs);
-	uint64_t t2 = CurrentMicros();
-	printf("ZDB query time: %.3f s\n", (t2 - t1) / 1000000.0);
-	cleanup_vdevs(vdevs);
-	kernel_fini();
-	uint64_t t3 = CurrentMicros();
-	printf("Total: %.3f s\n", (t3 - t0) / 1000000.0);
+	close(root);
+	printf("Total: %.3f s\n", (t1 - t0) / 1000000.0);
 	printf("Done\n");
-	return 0;
+	return r;
 }
