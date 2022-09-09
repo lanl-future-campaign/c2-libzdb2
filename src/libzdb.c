@@ -392,7 +392,6 @@ dump_object(objset_t *os, uint64_t object, zpool_vdevs_t *vdevs)
 
 			break;
 		case RAIDZ:
-			printf(">>>%s\n", curpath);
 			c2_vdev_raidz_map_alloc(&zio, vdev->ashift, vdev->count,
 			    vdev->nparity, vdev->names, actual_size);
 			break;
@@ -673,27 +672,28 @@ void process_dir(int dsfd, char *ds, char *path, zpool_vdevs_t *vdevs);
 void
 process_dir_d(int dsfd, DIR *dir, char *ds, char *path, zpool_vdevs_t *vdevs)
 {
-	char *const tmp = (char *) malloc(4096);
-	strcpy(tmp, path);
-	size_t prefixlen = strlen(tmp);
-	strcpy(tmp + prefixlen, "/");
-	prefixlen += 1;
+	char tmp[4096];
 	struct dirent *entry = readdir(dir);
 	while (entry) {
-		if (strcmp(entry->d_name, ".") == 0) {
-			// Ignore
-		} else if (strcmp(entry->d_name, "..") == 0) {
+		if (strcmp(entry->d_name, ".") == 0 ||
+		    strcmp(entry->d_name, "..") == 0) {
 			// Ignore
 		} else if (entry->d_type == DT_REG) {
-			strcpy(tmp + prefixlen, entry->d_name);
+			tmp[0] = 0;
+			strcat(tmp, path);
+			strcat(tmp, "/");
+			strcat(tmp, entry->d_name);
+			printf(">>> %s\n", tmp);
 			dump_path(ds, tmp, vdevs);
 		} else if (entry->d_type == DT_DIR) {
-			strcpy(tmp + prefixlen, entry->d_name);
+			tmp[0] = 0;
+			strcat(tmp, path);
+			strcat(tmp, "/");
+			strcat(tmp, entry->d_name);
 			process_dir(dsfd, ds, tmp, vdevs);
 		}
 		entry = readdir(dir);
 	}
-	free(tmp);
 }
 
 void
@@ -723,6 +723,7 @@ process_path(int dsfd, char *ds, char *path, zpool_vdevs_t *vdevs)
 	if (rv != 0) {
 		fprintf(stderr, "Cannot lstat %s: %s\n", path, strerror(errno));
 	} else if (S_ISREG(statbuf.st_mode)) {
+		printf(">>> %s\n", path);
 		dump_path(ds, path, vdevs);
 	} else if (S_ISDIR(statbuf.st_mode)) {
 		process_dir(dsfd, ds, path, vdevs);
