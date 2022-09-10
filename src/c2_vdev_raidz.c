@@ -179,10 +179,14 @@ c2_vdev_raidz_map_alloc(zio_t *zio, uint64_t ashift, uint64_t dcols,
 		rc->rc_offset += VDEV_LABEL_START_SIZE;
 
 		const uint64_t col_size = MIN(actual_size, rc->rc_size);
-
+#ifndef NDEBUG
 		printf("col=%02ld devidx=%02ld dev=%s offset=%lu size=%lu\n", c,
 		    rc->rc_devidx, (char *) backing[rc->rc_devidx],
 		    rc->rc_offset, col_size);
+#else
+		printf("devidx=%ld,offset=%lu,size=%lu\n", rc->rc_devidx,
+		    rc->rc_offset, col_size);
+#endif
 
 		actual_size -= col_size;
 	}
