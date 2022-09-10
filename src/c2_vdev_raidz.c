@@ -184,8 +184,8 @@ c2_vdev_raidz_map_alloc(zio_t *zio, uint64_t ashift, uint64_t dcols,
 		    rc->rc_devidx, (char *) backing[rc->rc_devidx],
 		    rc->rc_offset, col_size);
 #else
-		printf("devidx=%ld,offset=%lu,size=%lu\n", rc->rc_devidx,
-		    rc->rc_offset, col_size);
+		printf(
+		    "#%ld,%lu,%lu\n", rc->rc_devidx, rc->rc_offset, col_size);
 #endif
 
 		actual_size -= col_size;

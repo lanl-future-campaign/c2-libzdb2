@@ -61,3 +61,5 @@ else ()
             Threads::Threads
             )
 endif ()
+
+add_executable(zdb_pp libzdb_pp.cc)
