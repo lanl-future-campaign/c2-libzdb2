@@ -44,9 +44,13 @@ main(int argc, char *argv[])
 		std::string::size_type d1 = line.find_first_of(',', 1);
 		int i = atoi(line.substr(1, d1 - 1).c_str());
 		std::string::size_type d2 = line.find_first_of(',', d1 + 1);
-		std::string offset = line.substr(d1 + 1, d2 - d1 - 1);
+		long long int offset =
+		    atoll(line.substr(d1 + 1, d2 - d1 - 1).c_str());
+		offset += 1 << 20;
 		fputs("/dev/sda4:", map[i]);
-		fputs(offset.c_str(), map[i]);
+		char tmp[50];
+		sprintf(tmp, "%lld", offset);
+		fputs(tmp, map[i]);
 		fputs(":1048576\n", map[i]);
 	}
 	for (int i = 0; i < map.size(); i++) {
