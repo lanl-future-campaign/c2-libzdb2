@@ -42,11 +42,12 @@ main(int argc, char *argv[])
 			break;
 		}
 		std::string::size_type d1 = line.find_first_of(',', 1);
-		int devidx = atoi(line.substr(1, d1 - 1).c_str());
+		int i = atoi(line.substr(1, d1 - 1).c_str());
 		std::string::size_type d2 = line.find_first_of(',', d1 + 1);
 		std::string offset = line.substr(d1 + 1, d2 - d1 - 1);
-		fputs(offset.c_str(), map[devidx]);
-		fputc('\n', map[devidx]);
+		fputs("/dev/sda4:", map[i]);
+		fputs(offset.c_str(), map[i]);
+		fputs(":1048576\n", map[i]);
 	}
 	for (int i = 0; i < map.size(); i++) {
 		fflush(map[i]);
