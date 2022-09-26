@@ -111,9 +111,9 @@ sudo /opt/zfs/sbin/zpool status
  state: ONLINE
 config:
 
-	NAME                       STATE     READ WRITE CKSUM
-	mypool                     ONLINE       0     0     0
-	  raidz1-0                 ONLINE       0     0     0
+	NAME            STATE     READ WRITE CKSUM
+	mypool          ONLINE       0     0     0
+	  raidz1-0      ONLINE       0     0     0
 	    /tmp/file1  ONLINE       0     0     0
 	    /tmp/file2  ONLINE       0     0     0
 	    /tmp/file3  ONLINE       0     0     0
@@ -160,10 +160,10 @@ Indirect blocks:
 		segment [0000000000000000, 0000000000020000) size  128K
 ```
 
-Run `src/zdb` (libzdb2) to get the listing of the physical locations of data blocks that constitute the file:
+Run `src/dump_dvas` to get the listing of the physical locations of data blocks that constitute the file:
 
 ```bash
-src/zdb mypool myfile
+src/dump_dvas mypool myfile
 file size: 131072 (1 blocks)
 file_offset=0 vdev=0 io_offset=2147606528 record_size=131072
 col=01 vdevidx=03 dev=/tmp/file4 offset=541093888 size=45056
@@ -176,6 +176,6 @@ file from the physical offsets and sizes. The file should be an exact
 replica of the original file.
 
 ```bash
-src/zdb mypool myfile | src/reconstruct /tmp/reconstructed
+src/zdb dump_dvas myfile | src/reconstruct /tmp/reconstructed
 cmp /mypool/myfile /tmp/reconstructed # should have no difference
 ```
