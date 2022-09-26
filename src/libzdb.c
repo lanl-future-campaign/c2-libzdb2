@@ -79,13 +79,16 @@ typedef struct zpool_vdevs
   size_t count;
 } zpool_vdevs_t;
 
-static sa_attr_type_t *sa_attr_table = NULL;
-static char curpath[PATH_MAX];
-
-static uint8_t dump_opt[256];
+typedef struct libzdb {
+    char *ds;
+    objset_t *os;
+    uint64_t root_obj;
+    sa_attr_type_t *sa_attr_table;
+    zpool_vdevs_t *vdevs;
+} libzdb_t;
 
 static int
-open_objset(const char *path, const void *tag, objset_t **osp)
+open_objset(libzdb_t *ctx, void *tag)
 {
 	int err;
 	uint64_t sa_attrs = 0;
@@ -96,30 +99,30 @@ open_objset(const char *path, const void *tag, objset_t **osp)
 	 * dance: hold the objset, then acquire a long hold on its dataset, then
 	 * release the pool (which is held as part of holding the objset).
 	 */
-	err = dmu_objset_hold(path, tag, osp);
+	err = dmu_objset_hold(ctx->ds, tag, &ctx->os);
 	if (err != 0) {
 		(void) fprintf(stderr, "failed to hold dataset '%s': %s\n",
-		    path, strerror(err));
+		    ctx->ds, strerror(err));
 		return (err);
 	}
-	dsl_dataset_long_hold(dmu_objset_ds(*osp), tag);
-	dsl_pool_rele(dmu_objset_pool(*osp), tag);
+	dsl_dataset_long_hold(dmu_objset_ds(ctx->os), tag);
+	dsl_pool_rele(dmu_objset_pool(ctx->os), tag);
 
-	if (dmu_objset_type(*osp) == DMU_OST_ZFS && !(*osp)->os_encrypted) {
-		(void) zap_lookup(*osp, MASTER_NODE_OBJ, ZPL_VERSION_STR,
+	if (dmu_objset_type(ctx->os) == DMU_OST_ZFS && !ctx->os->os_encrypted) {
+		(void) zap_lookup(ctx->os, MASTER_NODE_OBJ, ZPL_VERSION_STR,
 		    8, 1, &version);
 		if (version >= ZPL_VERSION_SA) {
-			(void) zap_lookup(*osp, MASTER_NODE_OBJ, ZFS_SA_ATTRS,
+			(void) zap_lookup(ctx->os, MASTER_NODE_OBJ, ZFS_SA_ATTRS,
 			    8, 1, &sa_attrs);
 		}
-		err = sa_setup(*osp, sa_attrs, zfs_attr_table, ZPL_END,
-		    &sa_attr_table);
+		err = sa_setup(ctx->os, sa_attrs, zfs_attr_table, ZPL_END,
+		    &ctx->sa_attr_table);
 		if (err != 0) {
 			(void) fprintf(stderr, "sa_setup failed: %s\n",
 			    strerror(err));
-			dsl_dataset_long_rele(dmu_objset_ds(*osp), tag);
-			dsl_dataset_rele(dmu_objset_ds(*osp), tag);
-			*osp = NULL;
+			dsl_dataset_long_rele(dmu_objset_ds(ctx->os), tag);
+			dsl_dataset_rele(dmu_objset_ds(ctx->os), tag);
+			ctx->os = NULL;
 		}
 	}
 
@@ -127,26 +130,21 @@ open_objset(const char *path, const void *tag, objset_t **osp)
 }
 
 static void
-close_objset(objset_t *os, const void *tag)
+close_objset(libzdb_t *ctx, const void *tag)
 {
-	if (os->os_sa != NULL)
-		sa_tear_down(os);
-	dsl_dataset_long_rele(dmu_objset_ds(os), tag);
-	dsl_dataset_rele(dmu_objset_ds(os), tag);
-	sa_attr_table = NULL;
+	if (ctx->os->os_sa != NULL)
+		sa_tear_down(ctx->os);
+	dsl_dataset_long_rele(dmu_objset_ds(ctx->os), tag);
+	dsl_dataset_rele(dmu_objset_ds(ctx->os), tag);
+	ctx->sa_attr_table = NULL;
 }
 
 static void
 snprintf_blkptr_compact(char *blkbuf, size_t buflen, const blkptr_t *bp,
                         info_t *info) {
     const dva_t *dva = bp->blk_dva;
-    int ndvas = dump_opt['d'] > 5 ? BP_GET_NDVAS(bp) : 1;
+    int ndvas = 1;
     int i;
-
-    if (dump_opt['b'] >= 6) {
-        snprintf_blkptr(blkbuf, buflen, bp);
-        return;
-    }
 
     if (BP_IS_EMBEDDED(bp)) {
         sprintf(blkbuf, "EMBEDDED et=%u %llxL/%llxP B=%llu",
@@ -286,7 +284,8 @@ dump_indirect(dnode_t *dn, const size_t file_size, c2list_t *list) {
 }
 
 static uint64_t
-dump_znode(objset_t *os, uint64_t object, void *data, size_t size) {
+dump_znode(objset_t *os, uint64_t object, void *data, size_t size,
+    sa_attr_type_t *sa_attr_table) {
     sa_handle_t *hdl;
     uint64_t fsize;
     sa_bulk_attr_t bulk[1];
@@ -309,7 +308,7 @@ dump_znode(objset_t *os, uint64_t object, void *data, size_t size) {
 }
 
 static void
-dump_object(objset_t *os, uint64_t object, zpool_vdevs_t *vdevs) {
+dump_object(libzdb_t *ctx, uint64_t object) {
     dmu_buf_t *db = NULL;
     dmu_object_info_t doi;
     dnode_t *dn = NULL;
@@ -317,13 +316,13 @@ dump_object(objset_t *os, uint64_t object, zpool_vdevs_t *vdevs) {
     size_t bsize = 0;
     int error;
 
-    error = dmu_object_info(os, object, &doi);
+    error = dmu_object_info(ctx->os, object, &doi);
     if (error) {
         fprintf(stderr, "dmu_object_info() failed, errno %u\n", error);
         return;
     }
 
-    error = dmu_bonus_hold(os, object, FTAG, &db);
+    error = dmu_bonus_hold(ctx->os, object, FTAG, &db);
     if (error) {
         fprintf(stderr, "dmu_bonus_hold(%lu) failed, errno %u", object, error);
         return;
@@ -332,7 +331,7 @@ dump_object(objset_t *os, uint64_t object, zpool_vdevs_t *vdevs) {
     bsize = db->db_size;
     dn = DB_DNODE((dmu_buf_impl_t *)db);
 
-    const uint64_t fsize = dump_znode(os, object, bonus, bsize);
+    const uint64_t fsize = dump_znode(ctx->os, object, bonus, bsize, ctx->sa_attr_table);
 
     c2list_t block_list;
     c2list_init(&block_list);
@@ -353,7 +352,7 @@ dump_object(objset_t *os, uint64_t object, zpool_vdevs_t *vdevs) {
         info_t *info = c2list_get(node);
         info_t *next = c2list_get(next_node);
 
-        zpool_vdev_t *vdev = &vdevs->vdevs[info->vdev];
+        zpool_vdev_t *vdev = &ctx->vdevs->vdevs[info->vdev];
 
         const uint64_t actual_size = next->file_offset - info->file_offset;
 
@@ -500,6 +499,12 @@ dump_cachefile(const char *cachefile, const char *zpool_name) {
 
     vdti_t *zpool = NULL;
     c2_dump_nvlist(config, 0, zpool_name, &zpool, NULL);
+    if (!zpool) {
+        cleanup_zpool(zpool, 0, 1);
+        nvlist_free(config);
+        return (NULL);
+    }
+
 
     zpool_vdevs_t *vdevs = malloc(sizeof(zpool_vdevs_t));
     vdevs->count = zpool->vdevs.count;
@@ -540,11 +545,12 @@ dump_cachefile(const char *cachefile, const char *zpool_name) {
 
     nvlist_free(config);
 
-    return vdevs;
+    return (vdevs);
 }
 
 static int
-dump_path_impl(objset_t *os, uint64_t obj, char *name, zpool_vdevs_t *vdevs) {
+dump_path_impl(libzdb_t *ctx, uint64_t obj, char *name,
+               char *curpath) {
     int err;
     uint64_t child_obj;
     char *s;
@@ -553,7 +559,7 @@ dump_path_impl(objset_t *os, uint64_t obj, char *name, zpool_vdevs_t *vdevs) {
 
     if ((s = strchr(name, '/')) != NULL)
         *s = '\0';
-    err = zap_lookup(os, obj, name, 8, 1, &child_obj);
+    err = zap_lookup(ctx->os, obj, name, 8, 1, &child_obj);
 
     strlcat(curpath, name, sizeof(curpath));
 
@@ -563,7 +569,7 @@ dump_path_impl(objset_t *os, uint64_t obj, char *name, zpool_vdevs_t *vdevs) {
     }
 
     child_obj = ZFS_DIRENT_OBJ(child_obj);
-    err = sa_buf_hold(os, child_obj, FTAG, &db);
+    err = sa_buf_hold(ctx->os, child_obj, FTAG, &db);
     if (err != 0) {
         fprintf(stderr, "failed to get SA dbuf for obj %llu: %s\n",
                 (u_longlong_t)child_obj, strerror(err));
@@ -586,7 +592,7 @@ dump_path_impl(objset_t *os, uint64_t obj, char *name, zpool_vdevs_t *vdevs) {
         /*     return dump_path_impl(os, child_obj, s + 1); */
         /*FALLTHROUGH*/
         case DMU_OT_PLAIN_FILE_CONTENTS:
-            dump_object(os, child_obj, vdevs);
+            dump_object(ctx, child_obj);
             return 0;
         default:
             fprintf(stderr,
@@ -600,33 +606,45 @@ dump_path_impl(objset_t *os, uint64_t obj, char *name, zpool_vdevs_t *vdevs) {
 }
 
 static int
-dump_path(char *ds, char *path, zpool_vdevs_t *vdevs) {
+dump_ds(libzdb_t *ctx)
+{
     int err = 0;
-    objset_t *os = NULL;
-    uint64_t root_obj;
 
-	err = open_objset(ds, FTAG, &os);
+	err = open_objset(ctx, FTAG);
 	if (err != 0)
 		return (err);
 
-	err = zap_lookup(os, MASTER_NODE_OBJ, ZFS_ROOT_OBJ, 8, 1, &root_obj);
+	err = zap_lookup(ctx->os, MASTER_NODE_OBJ, ZFS_ROOT_OBJ, 8, 1, &ctx->root_obj);
 	if (err != 0) {
 		(void) fprintf(stderr, "can't lookup root znode: %s\n",
 		    strerror(err));
-		close_objset(os, FTAG);
+		close_objset(ctx, FTAG);
 		return (EINVAL);
 	}
 
-	(void) snprintf(curpath, sizeof (curpath), "dataset=%s path=/", ds);
+    return(err);
+}
 
-    err = dump_path_impl(os, root_obj, path, vdevs);
+static int
+dump_path(libzdb_t *ctx, char *path)
+{
+    int err = 0;
 
-	close_objset(os, FTAG);
+    char curpath[PATH_MAX];
+	(void) snprintf(curpath, sizeof (curpath), "dataset=%s path=/", ctx->ds);
+
+    err = dump_path_impl(ctx, ctx->root_obj, path, curpath);
+
     return(err);
 }
 
 static void
-cleanup_vdevs(zpool_vdevs_t *vdevs) {
+cleanup_vdevs(zpool_vdevs_t *vdevs)
+{
+    if (!vdevs) {
+        return;
+    }
+
     for(size_t i = 0; i < vdevs->count; i++) {
         zpool_vdev_t *vdev = &(vdevs->vdevs[i]);
         for(size_t j = 0; j < vdev->count; j++) {
@@ -638,19 +656,41 @@ cleanup_vdevs(zpool_vdevs_t *vdevs) {
     free(vdevs);
 }
 
-int
-main(int argc, char *argv[]) {
-  if (argc < 3) {
-      fprintf(stderr, "Syntax: %s zpool filename\n", argv[0]);
-      return 1;
-  }
+void libzdb_init()
+{
+    kernel_init(SPA_MODE_READ);
+}
 
-  memset(dump_opt, 0, sizeof(dump_opt));
-  kernel_init(SPA_MODE_READ);
-  zpool_vdevs_t *vdevs = dump_cachefile(ZPOOL_CACHE, argv[1]);
-  dump_path(argv[1], argv[2], vdevs);
-  cleanup_vdevs(vdevs);
-  kernel_fini();
+libzdb_t *libzdb_ds_init(char *name)
+{
+    zpool_vdevs_t *vdevs = dump_cachefile(ZPOOL_CACHE, name);
+    if (!vdevs) {
+        return (NULL);
+    }
 
-  return 0;
+    libzdb_t *ctx = calloc(1, sizeof(libzdb_t));
+    ctx->ds = name;
+    dump_ds(ctx);
+    ctx->vdevs = vdevs;
+
+    return ctx;
+}
+
+void libzdb_get_dvas(libzdb_t *ctx, char *path)
+{
+    dump_path(ctx, path);
+}
+
+void libzdb_zpool_fini(libzdb_t *ctx)
+{
+    if (ctx) {
+        cleanup_vdevs(ctx->vdevs);
+        close_objset(ctx, FTAG);
+        free(ctx);
+    }
+}
+
+void libzdb_fini()
+{
+    kernel_fini();
 }
