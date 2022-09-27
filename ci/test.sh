@@ -3,7 +3,7 @@
 set -e
 
 ZFS="$(realpath $1)"
-LIBZDB="$(realpath $2)"
+DUMP_DVAS="$(realpath $2)"
 RECONSTRUCT="$(realpath $3)"
 
 # can probably be input args
@@ -58,7 +58,7 @@ do
     sync -f "${filename}"
 
     # get physical locations of data and reconstruct the file
-    "${LIBZDB}" "${zpool_name}" "${filebase}" | tee /dev/stderr | "${RECONSTRUCT}" "${reconstructed}"
+    "${DUMP_DVAS}" "${zpool_name}" "${filebase}" | tee /dev/stderr | "${RECONSTRUCT}" "${reconstructed}"
 
     cmp "${filename}" "${reconstructed}"
 
