@@ -61,6 +61,7 @@ function(find_zfs_lib VAR NAME)
 endfunction()
 
 if (ZFS_SOURCE_HOME STREQUAL "")
+    find_package(PkgConfig REQUIRED)
     pkg_check_modules(ZFS REQUIRED libzfs)
 
     target_include_directories(zdb PRIVATE ${ZFS_INCLUDE_DIRS})
