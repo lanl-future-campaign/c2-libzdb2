@@ -53,4 +53,4 @@ jobs:
       run: cmake --build ${{github.workspace}}/build
 
     - name: Test
-      run: sudo ci/test.sh ~/zfs ${{github.workspace}}/build/src/dump_dvas ${{github.workspace}}/build/src/reconstruct
+      run: sudo ci/test.sh ~/zfs ${{github.workspace}}/build/src/dump_dvas ${{github.workspace}}/build/src/reconstruct ${{github.workspace}}/build/src/dump_and_reconstruct
