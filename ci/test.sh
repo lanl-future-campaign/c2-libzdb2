@@ -13,8 +13,8 @@ zpool_root="/${zpool_name}"
 backing_count=6
 filebase="myfile"
 filename="${zpool_root}/${filebase}"
-bs=1M
-count=1
+bs=1048577
+count=2
 reconstructed="/tmp/reconstructed"
 
 # backing files instead of drives
