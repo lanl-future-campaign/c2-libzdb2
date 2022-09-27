@@ -26,16 +26,17 @@
  * Copyright (c) 2022 Triad National Security, LLC as operator of Los Alamos
  *     National Laboratory. All rights reserved.
  */
-#include "c2_vdev_raidz.h"
+#include <libzdb/vdev_raidz.h>
 
-#include <sys/vdev_impl.h>
-#include <sys/vdev_raidz_impl.h>
+#include <sys/vdev_impl.h>        /* ZFS */
+#include <sys/vdev_raidz_impl.h>  /* ZFS */
 
 #include <stdlib.h>
 
 void
-c2_vdev_raidz_map_alloc(zio_t *zio, uint64_t ashift, uint64_t dcols,
-                        uint64_t nparity, char **backing, uint64_t actual_size) {
+libzdb_vdev_raidz_map_alloc(zio_t *zio, uint64_t ashift, uint64_t dcols,
+                        uint64_t nparity, char **backing, uint64_t actual_size,
+                        libzdb_dva_t *dva) {
 	raidz_row_t *rr;
 	/* The starting RAIDZ (parent) vdev sector of the block. */
 	uint64_t b = zio->io_offset >> ashift;
@@ -180,9 +181,14 @@ c2_vdev_raidz_map_alloc(zio_t *zio, uint64_t ashift, uint64_t dcols,
 
       const uint64_t col_size = MIN(actual_size, rc->rc_size);
 
-      printf ("col=%02ld vdevidx=%02ld dev=%s offset=%lu size=%lu\n", c,
-              rc->rc_devidx, (char *)backing[rc->rc_devidx], rc->rc_offset,
-              col_size);
+      libzdb_record_t *record = malloc(sizeof(libzdb_record_t));
+      record->type = RAIDZ;
+      record->col = c;
+      record->vdevidx = rc->rc_devidx;
+      record->dev = (char *)backing[rc->rc_devidx];
+      record->offset = rc->rc_offset;
+      record->size = col_size;
+      libzdb_list_pushback(&dva->records, record);
 
       actual_size -= col_size;
     }

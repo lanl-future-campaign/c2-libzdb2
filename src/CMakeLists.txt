@@ -29,14 +29,17 @@
 # ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-set(zdb_srcs
-  c2_libnvpair.c
-  c2_vdev_raidz.c
-  libzdb.c
-  list.c
+
+set(libzdb_srcs
+  libzdb/file.c
+  libzdb/libnvpair.c
+  libzdb/list.c
+  libzdb/reconstruct.c
+  libzdb/vdev_raidz.c
+  libzdb/zdb.c
   )
 
-add_library(zdb ${zdb_srcs})
+add_library(zdb ${libzdb_srcs})
 
 target_compile_definitions(zdb PRIVATE LARGEFILE64_SOURCE)
 target_compile_definitions(zdb PRIVATE _GNU_SOURCE)
@@ -88,4 +91,10 @@ add_executable(dump_dvas dump_dvas.c)
 target_include_directories(dump_dvas PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(dump_dvas zdb)
 
-add_executable(reconstruct reconstruct.cpp)
+add_executable(reconstruct reconstruct.c)
+target_include_directories(reconstruct PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(reconstruct zdb)
+
+add_executable(dump_and_reconstruct dump_and_reconstruct.c)
+target_include_directories(dump_and_reconstruct PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(dump_and_reconstruct zdb)

@@ -25,7 +25,7 @@
  * Copyright (c) 2022 Triad National Security, LLC as operator of Los Alamos
  *     National Laboratory. All rights reserved.
  */
-#include "c2_libnvpair.h"
+#include <libzdb/libnvpair.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,7 +35,7 @@
  * Similar to nvlist_print() but handles arrays slightly differently.
  */
 void
-c2_dump_nvlist(nvlist_t *list, int indent, const char *zpool_name,
+libzdb_dump_nvlist(nvlist_t *list, int indent, const char *zpool_name,
                vdti_t **zpool, vdi_t *vdev) {
     nvpair_t *elem = NULL;
     boolean_t bool_value;
@@ -87,7 +87,7 @@ c2_dump_nvlist(nvlist_t *list, int indent, const char *zpool_name,
                     (indent == 4)) { /* raidz or mirror */
                     if (key_len == 4) {
                         if (strncmp(key, "path", 4) == 0) {
-                            c2list_pushback(&vdev->names, value);
+                            libzdb_list_pushback(&vdev->names, value);
                         }
                     }
                 }
@@ -102,8 +102,8 @@ c2_dump_nvlist(nvlist_t *list, int indent, const char *zpool_name,
                         if (strncmp(key, zpool_name, strlen(zpool_name)) == 0) {
                             *zpool = malloc(sizeof(vdti_t));
                             (*zpool)->name = nvpair_name(elem);
-                            c2list_init(&(*zpool)->vdevs);
-                            c2_dump_nvlist(nvlist_value, indent + 1, NULL, zpool,
+                            libzdb_list_init(&(*zpool)->vdevs);
+                            libzdb_dump_nvlist(nvlist_value, indent + 1, NULL, zpool,
                                             NULL);
                         }
                     }
@@ -111,7 +111,7 @@ c2_dump_nvlist(nvlist_t *list, int indent, const char *zpool_name,
                 /* find vdev_tree under zpool */
                 else if (indent == 1) {
                     if ((key_len == 9) && (strncmp(key, "vdev_tree", 9) == 0)) {
-                        c2_dump_nvlist(nvlist_value, indent + 1, NULL, zpool, NULL);
+                        libzdb_dump_nvlist(nvlist_value, indent + 1, NULL, zpool, NULL);
                     }
                 }
 
@@ -125,11 +125,11 @@ c2_dump_nvlist(nvlist_t *list, int indent, const char *zpool_name,
                         if (indent == 2) {
                             vdev = calloc(1, sizeof(vdi_t));
                             vdev->type = STRIPE;
-                            c2list_init(&vdev->names);
-                            c2list_pushback(&(*zpool)->vdevs, vdev);
+                            libzdb_list_init(&vdev->names);
+                            libzdb_list_pushback(&(*zpool)->vdevs, vdev);
                         }
                         /* if indent == 2 || indent == 3 */
-                        c2_dump_nvlist(nvlist_array_value[i], indent + 1, NULL,
+                        libzdb_dump_nvlist(nvlist_array_value[i], indent + 1, NULL,
                                         NULL, vdev);
                     }
                 }

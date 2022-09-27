@@ -34,7 +34,7 @@
 
 #include <stdio.h>
 
-#include "libzdb.h"
+#include <libzdb/libzdb.h>
 
 int
 main(int argc, char *argv[]) {
@@ -46,7 +46,9 @@ main(int argc, char *argv[]) {
     libzdb_init();
     libzdb_t *ctx = libzdb_ds_init(argv[1]);
     if (ctx) {
-        libzdb_get_dvas(ctx, argv[2]);
+        libzdb_file_t *file = libzdb_get_dvas(ctx, argv[2]);
+        libzdb_file_print(file, stdout);
+        libzdb_file_free(file);
         libzdb_zpool_fini(ctx);
     }
     libzdb_fini();

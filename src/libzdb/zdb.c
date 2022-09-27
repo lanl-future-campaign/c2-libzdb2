@@ -36,9 +36,12 @@
  * Copyright (c) 2022 Triad National Security, LLC as operator of Los Alamos
  *     National Laboratory. All rights reserved.
  */
-#include "c2_libnvpair.h"
-#include "list.h"
-#include "c2_vdev_raidz.h"
+
+#include <libzdb/file.h>
+#include <libzdb/libnvpair.h>
+#include <libzdb/list.h>
+#include <libzdb/vdev_raidz.h>
+#include <libzdb/zpool.h>
 
 #include <sys/dbuf.h>
 #include <sys/dmu.h>
@@ -79,7 +82,9 @@ typedef struct zpool_vdevs
   size_t count;
 } zpool_vdevs_t;
 
-typedef struct libzdb {
+/* libzdb context */
+typedef struct libzdb
+{
     char *ds;
     objset_t *os;
     uint64_t root_obj;
@@ -188,7 +193,7 @@ blkid2offset(const dnode_phys_t *dnp, const blkptr_t *bp,
 
 static void
 print_indirect(blkptr_t *bp, const zbookmark_phys_t *zb,
-               const dnode_phys_t *dnp, c2list_t *list) {
+               const dnode_phys_t *dnp, libzdb_list_t *list) {
     char blkbuf[BP_SPRINTF_LEN];
     int l;
 
@@ -214,7 +219,7 @@ print_indirect(blkptr_t *bp, const zbookmark_phys_t *zb,
     snprintf_blkptr_compact(blkbuf, sizeof(blkbuf), bp, info);
     if (BP_GET_LEVEL(bp) == 0) {
         info->file_offset = blkid2offset(dnp, bp, zb);
-        c2list_pushback(list, info);
+        libzdb_list_pushback(list, info);
     }
     else {
         free(info);
@@ -225,7 +230,7 @@ print_indirect(blkptr_t *bp, const zbookmark_phys_t *zb,
 
 static int
 visit_indirect(spa_t *spa, const dnode_phys_t *dnp, blkptr_t *bp,
-               const zbookmark_phys_t *zb, c2list_t *list) {
+               const zbookmark_phys_t *zb, libzdb_list_t *list) {
     int err = 0;
 
     if (bp->blk_birth == 0)
@@ -268,7 +273,7 @@ visit_indirect(spa_t *spa, const dnode_phys_t *dnp, blkptr_t *bp,
 }
 
 static void
-dump_indirect(dnode_t *dn, const size_t file_size, c2list_t *list) {
+dump_indirect(dnode_t *dn, const size_t file_size, libzdb_list_t *list) {
     dnode_phys_t *dnp = dn->dn_phys;
     zbookmark_phys_t czb;
 
@@ -307,7 +312,7 @@ dump_znode(objset_t *os, uint64_t object, void *data, size_t size,
     return fsize;
 }
 
-static void
+static libzdb_file_t *
 dump_object(libzdb_t *ctx, uint64_t object) {
     dmu_buf_t *db = NULL;
     dmu_object_info_t doi;
@@ -319,13 +324,13 @@ dump_object(libzdb_t *ctx, uint64_t object) {
     error = dmu_object_info(ctx->os, object, &doi);
     if (error) {
         fprintf(stderr, "dmu_object_info() failed, errno %u\n", error);
-        return;
+        return NULL;
     }
 
     error = dmu_bonus_hold(ctx->os, object, FTAG, &db);
     if (error) {
         fprintf(stderr, "dmu_bonus_hold(%lu) failed, errno %u", object, error);
-        return;
+        return NULL;
     }
     bonus = db->db_data;
     bsize = db->db_size;
@@ -333,24 +338,24 @@ dump_object(libzdb_t *ctx, uint64_t object) {
 
     const uint64_t fsize = dump_znode(ctx->os, object, bonus, bsize, ctx->sa_attr_table);
 
-    c2list_t block_list;
-    c2list_init(&block_list);
+    libzdb_list_t block_list;
+    libzdb_list_init(&block_list);
 
     dump_indirect(dn, doi.doi_max_offset, &block_list);
 
-    printf("file size: %zu (%zu blocks)\n", fsize, block_list.count);
+    libzdb_file_t *file = libzdb_file_create(fsize, block_list.count);
 
     /* add extra info to get last chunk's size */
     info_t *extra = malloc(sizeof(info_t));
     extra->file_offset = fsize;
-    c2list_pushback(&block_list, extra);
+    libzdb_list_pushback(&block_list, extra);
 
-    for(node_t *node = c2list_head(&block_list); node && c2list_next(node);
-        node = c2list_next(node)) {
-        node_t *next_node = c2list_next(node);
+    for(libzdb_node_t *node = libzdb_list_head(&block_list); node && libzdb_list_next(node);
+        node = libzdb_list_next(node)) {
+        libzdb_node_t *next_node = libzdb_list_next(node);
 
-        info_t *info = c2list_get(node);
-        info_t *next = c2list_get(next_node);
+        info_t *info = libzdb_list_get(node);
+        info_t *next = libzdb_list_get(next_node);
 
         zpool_vdev_t *vdev = &ctx->vdevs->vdevs[info->vdev];
 
@@ -360,8 +365,13 @@ dump_object(libzdb_t *ctx, uint64_t object) {
         zio.io_offset = info->offset;
         zio.io_size = P2ROUNDUP(actual_size, 1ULL << vdev->ashift);
 
-        printf("file_offset=%ld vdev=%ld io_offset=%ld record_size=%ld\n",
-               info->file_offset, info->vdev, info->offset, actual_size);
+        libzdb_dva_t *dva = malloc(sizeof(libzdb_dva_t));
+        dva->file_offset = info->file_offset;
+        dva->vdev = info->vdev;
+        dva->io_offset = info->offset;
+        dva->size = actual_size;
+        libzdb_list_init(&dva->records);
+        libzdb_list_pushback(&file->dvas, dva);
 
         switch(vdev->type) {
             case STRIPE:
@@ -371,23 +381,33 @@ dump_object(libzdb_t *ctx, uint64_t object) {
                 }
                 /* fallthrough */
             case MIRROR:
-                printf("vdevidx=%ld dev=%s offset=%llu size=%lu\n", info->vdev,
-                       vdev->names[0], info->offset + VDEV_LABEL_START_SIZE,
-                       actual_size);
+                ;
+
+                /* only 1 record */
+                libzdb_record_t *record = malloc(sizeof(libzdb_record_t));
+                record->type = vdev->type;
+                record->col = -1;
+                record->vdevidx = info->vdev;
+                record->dev = vdev->names[0];
+                record->offset = info->offset + VDEV_LABEL_START_SIZE;
+                record->size = actual_size;
+                libzdb_list_pushback(&dva->records, record);
 
                 break;
             case RAIDZ:
-                c2_vdev_raidz_map_alloc(&zio, vdev->ashift, vdev->count, vdev->nparity,
-                                        vdev->names, actual_size);
+                libzdb_vdev_raidz_map_alloc(&zio, vdev->ashift, vdev->count, vdev->nparity,
+                                        vdev->names, actual_size, dva);
                 break;
             default:
                 break;
         }
     }
 
-    c2list_fin(&block_list, free);
+    libzdb_list_fin(&block_list, free);
 
     dmu_buf_rele(db, FTAG);
+
+    return file;
 }
 
 static void
@@ -401,9 +421,9 @@ cleanup_zpool(vdti_t *zpool, int print, int clean) {
     }
 
     size_t vdev_index = 0;
-    node_t *vdev_node = c2list_head(&zpool->vdevs);
+    libzdb_node_t *vdev_node = libzdb_list_head(&zpool->vdevs);
     while(vdev_node) {
-        vdi_t *vdev = c2list_get(vdev_node);
+        vdi_t *vdev = libzdb_list_get(vdev_node);
 
         if (print) {
             printf("    vdev %zu, ashift %zu, count %zu, ", vdev_index,
@@ -429,27 +449,27 @@ cleanup_zpool(vdti_t *zpool, int print, int clean) {
         }
 
         size_t dev_index = 0;
-        node_t *dev_node = c2list_head(&vdev->names);
+        libzdb_node_t *dev_node = libzdb_list_head(&vdev->names);
         while(dev_node) {
-            char *name = c2list_get(dev_node);
+            char *name = libzdb_list_get(dev_node);
             if (print)
             {
                 printf("        dev %zu %s\n", dev_index, name);
             }
-            dev_node = c2list_next(dev_node);
+            dev_node = libzdb_list_next(dev_node);
             dev_index++;
         }
 
         if (clean) {
-            c2list_fin(&vdev->names, NULL);
+            libzdb_list_fin(&vdev->names, NULL);
         }
 
-        vdev_node = c2list_next(vdev_node);
+        vdev_node = libzdb_list_next(vdev_node);
         vdev_index++;
     }
 
     if (clean) {
-        c2list_fin(&zpool->vdevs, free);
+        libzdb_list_fin(&zpool->vdevs, free);
     }
 
     free(zpool);
@@ -498,13 +518,11 @@ dump_cachefile(const char *cachefile, const char *zpool_name) {
     /* generate list of vdev names here, before nvlist_free */
 
     vdti_t *zpool = NULL;
-    c2_dump_nvlist(config, 0, zpool_name, &zpool, NULL);
+    libzdb_dump_nvlist(config, 0, zpool_name, &zpool, NULL);
     if (!zpool) {
-        cleanup_zpool(zpool, 0, 1);
         nvlist_free(config);
         return (NULL);
     }
-
 
     zpool_vdevs_t *vdevs = malloc(sizeof(zpool_vdevs_t));
     vdevs->count = zpool->vdevs.count;
@@ -512,9 +530,9 @@ dump_cachefile(const char *cachefile, const char *zpool_name) {
 
     /* copy info from each vdev within the current zpool */
     size_t vdevidx = 0;
-    for(node_t *zpool_vdev_node = c2list_head(&zpool->vdevs); zpool_vdev_node;
-        zpool_vdev_node = c2list_next(zpool_vdev_node)) {
-        vdi_t *zpool_vdev = c2list_get(zpool_vdev_node);
+    for(libzdb_node_t *zpool_vdev_node = libzdb_list_head(&zpool->vdevs); zpool_vdev_node;
+        zpool_vdev_node = libzdb_list_next(zpool_vdev_node)) {
+        vdi_t *zpool_vdev = libzdb_list_get(zpool_vdev_node);
 
         /* set up current vdev */
         zpool_vdev_t *vdev = &vdevs->vdevs[vdevidx];
@@ -526,9 +544,9 @@ dump_cachefile(const char *cachefile, const char *zpool_name) {
 
         /* explicitly copy vdev backing device names from nvpair tree */
         size_t devidx = 0;
-        for(node_t *node = c2list_head(&zpool_vdev->names); node;
-            node = c2list_next(node)) {
-            const char *path = c2list_get(node);
+        for(libzdb_node_t *node = libzdb_list_head(&zpool_vdev->names); node;
+            node = libzdb_list_next(node)) {
+            const char *path = libzdb_list_get(node);
             const size_t path_len = strlen(path);
             const size_t path_size =(path_len + 1) * sizeof(char);
 
@@ -550,7 +568,7 @@ dump_cachefile(const char *cachefile, const char *zpool_name) {
 
 static int
 dump_path_impl(libzdb_t *ctx, uint64_t obj, char *name,
-               char *curpath) {
+               char *curpath, libzdb_file_t **file) {
     int err;
     uint64_t child_obj;
     char *s;
@@ -592,7 +610,7 @@ dump_path_impl(libzdb_t *ctx, uint64_t obj, char *name,
         /*     return dump_path_impl(os, child_obj, s + 1); */
         /*FALLTHROUGH*/
         case DMU_OT_PLAIN_FILE_CONTENTS:
-            dump_object(ctx, child_obj);
+            *file = dump_object(ctx, child_obj);
             return 0;
         default:
             fprintf(stderr,
@@ -626,14 +644,14 @@ dump_ds(libzdb_t *ctx)
 }
 
 static int
-dump_path(libzdb_t *ctx, char *path)
+dump_path(libzdb_t *ctx, char *path, libzdb_file_t **file)
 {
     int err = 0;
 
     char curpath[PATH_MAX];
 	(void) snprintf(curpath, sizeof (curpath), "dataset=%s path=/", ctx->ds);
 
-    err = dump_path_impl(ctx, ctx->root_obj, path, curpath);
+    err = dump_path_impl(ctx, ctx->root_obj, path, curpath, file);
 
     return(err);
 }
@@ -676,9 +694,11 @@ libzdb_t *libzdb_ds_init(char *name)
     return ctx;
 }
 
-void libzdb_get_dvas(libzdb_t *ctx, char *path)
+libzdb_file_t *libzdb_get_dvas(libzdb_t *ctx, char *path)
 {
-    dump_path(ctx, path);
+    libzdb_file_t *file = NULL;
+    dump_path(ctx, path, &file);
+    return file;
 }
 
 void libzdb_zpool_fini(libzdb_t *ctx)

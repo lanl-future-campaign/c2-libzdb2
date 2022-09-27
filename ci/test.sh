@@ -5,6 +5,7 @@ set -e
 ZFS="$(realpath $1)"
 DUMP_DVAS="$(realpath $2)"
 RECONSTRUCT="$(realpath $3)"
+DUMP_AND_RECONSTRUCT="$(realpath $4)"
 
 # can probably be input args
 ashift=12
@@ -58,7 +59,13 @@ do
     sync -f "${filename}"
 
     # get physical locations of data and reconstruct the file
-    "${DUMP_DVAS}" "${zpool_name}" "${filebase}" | tee /dev/stderr | "${RECONSTRUCT}" "${reconstructed}"
+    "${DUMP_DVAS}" "${zpool_name}" "${filebase}" | tee /dev/stderr | "${RECONSTRUCT}" "${backing_count}" "${reconstructed}"
+
+    cmp "${filename}" "${reconstructed}"
+
+    rm "${reconstructed}"
+
+    "${DUMP_AND_RECONSTRUCT}" "${zpool_name}" "${filebase}" "${backing_count}" "${reconstructed}"
 
     cmp "${filename}" "${reconstructed}"
 
