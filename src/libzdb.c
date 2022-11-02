@@ -689,8 +689,10 @@ process_dir_d(int dsfd, DIR *dir, char *ds, char *path, zpool_vdevs_t *vdevs)
 			dump_path(ds, tmp, vdevs);
 		} else if (entry->d_type == DT_DIR) {
 			tmp[0] = 0;
-			strcat(tmp, path);
-			strcat(tmp, "/");
+			if (strcmp(path, ".") != 0) {
+				strcat(tmp, path);
+				strcat(tmp, "/");
+			}
 			strcat(tmp, entry->d_name);
 			process_dir(dsfd, ds, tmp, vdevs);
 		}
