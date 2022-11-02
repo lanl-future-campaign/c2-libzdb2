@@ -675,7 +675,8 @@ process_dir_d(int dsfd, DIR *dir, char *ds, char *path, zpool_vdevs_t *vdevs)
 	char tmp[4096];
 	struct dirent *entry = readdir(dir);
 	while (entry) {
-		if (strcmp(entry->d_name, ".") == 0 ||
+		if (strcmp(entry->d_name, "metadata") == 0 ||
+		    strcmp(entry->d_name, ".") == 0 ||
 		    strcmp(entry->d_name, "..") == 0) {
 			// Ignore
 		} else if (entry->d_type == DT_REG) {
