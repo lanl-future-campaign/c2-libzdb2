@@ -70,7 +70,7 @@ sudo make install
 There are two options to build LibZDB. The first is to build LibZDB against the ZFS source tree we just built.
 
 ```bash
-git clone -b zfs-2.1.5 https://github.com/lanl-future-campaign/c2-libzdb2.git
+git clone -b sdc22 https://github.com/lanl-future-campaign/c2-libzdb2.git
 cd c2-libzdb2
 mkdir build
 cd build
@@ -82,7 +82,7 @@ make
 The other is to build LibZDB against the ZFS we just installed.
 
 ```bash
-git clone -b zfs-2.1.5 https://github.com/lanl-future-campaign/c2-libzdb2.git
+git clone -b sdc22 https://github.com/lanl-future-campaign/c2-libzdb2.git
 cd c2-libzdb2
 mkdir build
 cd build
